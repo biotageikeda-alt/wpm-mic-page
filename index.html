@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WPM AI Talk Mic Test</title>
+  <style>
+    :root{--bg:#f6f8ff;--card:#fff;--line:#dbe3f4;--text:#102033;--muted:#667085;--blue:#2563eb;--green:#16a34a;--red:#ef4444;--amber:#f59e0b;--purple:#7c3aed;}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}.hero{background:linear-gradient(135deg,#eef4ff,#fff);border:1px solid var(--line);border-radius:22px;padding:18px 20px;margin-bottom:16px;box-shadow:0 8px 22px rgba(20,40,90,.06)}
+    h1{font-size:24px;margin:0 0 6px}.sub{color:var(--muted);font-size:14px;line-height:1.6}.grid{display:grid;gap:14px}.cols{grid-template-columns:1fr 1fr}@media(max-width:800px){.cols{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 6px 18px rgba(20,40,90,.05)}
+    label{display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:7px;letter-spacing:.03em}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{margin:2px 0}
+    textarea,input,select{width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:11px 12px;font-size:15px;background:#fff;color:var(--text)}textarea{min-height:140px;resize:vertical;line-height:1.55}
+    button{border:0;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;color:white;background:var(--blue);box-shadow:0 4px 12px rgba(37,99,235,.22)}button.secondary{background:#64748b}button.green{background:var(--green)}button.red{background:var(--red)}button.purple{background:var(--purple)}button.ghost{background:#eef2ff;color:#1d4ed8;box-shadow:none;border:1px solid #c7d2fe}button:disabled{opacity:.55;cursor:not-allowed}
+    .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:6px 10px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:800;border:1px solid #c7d2fe}.pill.red{background:#fee2e2;color:#991b1b;border-color:#fecaca}.pill.green{background:#dcfce7;color:#166534;border-color:#bbf7d0}.pill.amber{background:#fef3c7;color:#92400e;border-color:#fde68a}
+    .phrase{font-size:22px;line-height:1.55;font-weight:750;min-height:96px}.small{font-size:13px;color:var(--muted);line-height:1.55}.debug{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.meter{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;flex:1;min-width:160px;border:1px solid #cbd5e1}.meter>span{display:block;height:100%;width:0%;background:#2563eb;transition:width .08s linear}.result{font-size:18px;line-height:1.5;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;min-height:56px}.scorebig{font-size:28px;font-weight:900}.ok{color:#16a34a}.ng{color:#ef4444}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.hidden{display:none}.footer{padding:10px;color:var(--muted);font-size:12px;text-align:center}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>🎙 WPM AI Talk Mic Recognition</h1>
+    <div class="sub">External HTTPS page for microphone recognition. GAS側ではマイクがPermissions Policyで止まるため、マイク画面だけ外部ページとして動かします。</div>
+  </div>
+
+  <div class="grid cols">
+    <div class="card">
+      <label>GAS Web App URL / GASのURL（任意）</label>
+      <input id="gasUrl" placeholder="https://script.google.com/macros/s/xxxx/exec" />
+      <div class="row" style="margin-top:8px">
+        <button class="ghost" id="saveSettingsBtn">Save settings</button>
+        <button class="ghost" id="loadFromGasBtn">Load latest from GAS</button>
+        <span id="gasStatus" class="pill">GAS: not connected</span>
+      </div>
+      <p class="small">GAS連携は任意です。まずは下のScriptにA/B台本を貼り付けて、マイク認識だけ確認できます。</p>
+    </div>
+
+    <div class="card">
+      <label>Recognition settings / 認識設定</label>
+      <div class="row">
+        <select id="lang" style="max-width:170px"><option value="en-US">English US</option><option value="en-GB">English UK</option><option value="ja-JP">Japanese</option></select>
+        <select id="passLevel" style="max-width:170px"><option value="65">Normal 65%</option><option value="75">Strict 75%</option><option value="55">Easy 55%</option></select>
+        <label class="row" style="width:auto;margin:0"><input id="autoNext" type="checkbox" checked style="width:auto"> Auto next</label>
+        <label class="row" style="width:auto;margin:0"><input id="autoMic" type="checkbox" style="width:auto"> Auto mic</label>
+      </div>
+      <div class="row" style="margin-top:10px"><span id="supportSR" class="pill">SpeechRecognition: checking</span><span id="supportMic" class="pill">Mic: checking</span><span id="secureState" class="pill">HTTPS: checking</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <label>A/B Script / A/B台本</label>
+    <textarea id="scriptBox" placeholder="A: Hey, how’s it going today?&#10;B: You look like something’s been bothering you a bit.&#10;A: What makes you say that?&#10;B: You seemed a little quiet in the meeting."></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="loadScriptBtn" class="green">Load script</button>
+      <button id="sampleBtn" class="ghost">Sample</button>
+      <span id="countPill" class="pill">0 / 0</span>
+    </div>
+  </div>
+
+  <div class="grid cols" style="margin-top:14px">
+    <div class="card"><label>AI A says</label><div id="aPhrase" class="phrase">Load a script first.</div></div>
+    <div class="card"><label>Your B phrase</label><div id="bPhrase" class="phrase">Your expected answer will appear here.</div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="row">
+      <button id="startBtn" class="green">▶ Start</button>
+      <button id="speakABtn">🔊 Speak A</button>
+      <button id="speakBBtn" class="red">🎙 Speak B</button>
+      <button id="stopBtn" class="secondary">■ Stop</button>
+      <button id="nextBtn" class="purple">Next ▶</button>
+      <button id="resetBtn" class="ghost">Reset</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <label>Recognition result <span id="scorePill" class="pill">Score: -</span></label>
+    <div id="heardBox" class="result">Your recognized speech will appear here.</div>
+    <div id="statusBox" class="result small" style="margin-top:10px;background:#eef2ff;color:#3730a3">Tip: press Speak B and allow microphone permission on this external page.</div>
+    <div class="card" style="margin-top:10px;border-style:dashed">
+      <div class="row debug"><span class="pill">MIC DEBUG</span><span id="permPill" class="pill amber">permission: unknown</span><span id="eventPill" class="pill">event: idle</span></div>
+      <div class="row debug" style="margin-top:8px"><b>INPUT LEVEL</b><div class="meter"><span id="meterBar"></span></div><span id="levelText" class="pill">0%</span></div>
+    </div>
+  </div>
+
+  <div class="footer">Deploy this file to Netlify / GitHub Pages / Vercel. Do not run this file inside GAS iframe.</div>
+</div>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let pairs = [], idx = 0, recognition = null, stream = null, audioCtx = null, raf = null, listening = false;
+  const els = {gasUrl:$('gasUrl'), gasStatus:$('gasStatus'), scriptBox:$('scriptBox'), lang:$('lang'), passLevel:$('passLevel'), autoNext:$('autoNext'), autoMic:$('autoMic'), supportSR:$('supportSR'), supportMic:$('supportMic'), secureState:$('secureState'), countPill:$('countPill'), aPhrase:$('aPhrase'), bPhrase:$('bPhrase'), scorePill:$('scorePill'), heardBox:$('heardBox'), statusBox:$('statusBox'), permPill:$('permPill'), eventPill:$('eventPill'), meterBar:$('meterBar'), levelText:$('levelText')};
+  function setPill(el, text, cls){ el.className='pill '+(cls||''); el.textContent=text; }
+  function status(text, cls){ els.statusBox.textContent=text; els.statusBox.style.background = cls==='error'?'#fee2e2':cls==='ok'?'#dcfce7':'#eef2ff'; els.statusBox.style.color = cls==='error'?'#991b1b':cls==='ok'?'#166534':'#3730a3'; }
+  function normalize(s){ return String(s||'').toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
+  function score(target, heard){ const t=normalize(target), h=normalize(heard); if(!t && !h) return 100; if(!t||!h) return 0; const tw=t.split(' '), hw=h.split(' '); let hit=0; const used={}; tw.forEach(w=>{ const j=hw.findIndex((x,i)=>!used[i]&&x===w); if(j>=0){used[j]=1;hit++;}}); const wordScore = hit/Math.max(tw.length,1)*100; const dist = levenshtein(t,h), charScore = (1 - dist/Math.max(t.length,h.length,1))*100; return Math.max(0, Math.round(wordScore*.55 + charScore*.45)); }
+  function levenshtein(a,b){ const m=a.length,n=b.length,dp=Array.from({length:m+1},()=>Array(n+1).fill(0)); for(let i=0;i<=m;i++)dp[i][0]=i; for(let j=0;j<=n;j++)dp[0][j]=j; for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return dp[m][n]; }
+  function parseScript(text){ const lines=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean); const out=[]; let pendingA=''; lines.forEach(line=>{ const m=line.match(/^([AB])\s*[:：]\s*(.+)$/i); if(m){ const who=m[1].toUpperCase(), val=m[2].trim(); if(who==='A') pendingA=val; else if(who==='B'){ out.push({a:pendingA||'(A line)', b:val}); pendingA=''; }} }); if(!out.length){ for(let i=0;i<lines.length;i+=2){ out.push({a:lines[i]||'', b:lines[i+1]||''}); } } return out.filter(p=>p.a||p.b); }
+  function render(){ const total=pairs.length; if(!total){ els.aPhrase.textContent='Load a script first.'; els.bPhrase.textContent='Your expected answer will appear here.'; els.countPill.textContent='0 / 0'; return; } idx=Math.max(0,Math.min(idx,total-1)); els.aPhrase.textContent=pairs[idx].a; els.bPhrase.textContent=pairs[idx].b; els.countPill.textContent=(idx+1)+' / '+total; els.heardBox.textContent='Your recognized speech will appear here.'; setPill(els.scorePill,'Score: -',''); }
+  function speakA(){ if(!pairs.length) return status('Load a script first.', 'error'); const u=new SpeechSynthesisUtterance(pairs[idx].a); u.lang=els.lang.value; u.rate=0.95; u.onstart=()=>status('AI A is speaking...', ''); u.onend=()=>{status('Now speak your B phrase.', ''); if(els.autoMic.checked) setTimeout(startRecognition,350);}; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+  async function startMeter(){ try{ stopMeter(); stream = await navigator.mediaDevices.getUserMedia({audio:true}); setPill(els.permPill,'permission: granted','green'); audioCtx = new (window.AudioContext||window.webkitAudioContext)(); const src=audioCtx.createMediaStreamSource(stream); const analyser=audioCtx.createAnalyser(); analyser.fftSize=512; src.connect(analyser); const data=new Uint8Array(analyser.frequencyBinCount); const tick=()=>{ analyser.getByteTimeDomainData(data); let sum=0; for(const v of data){ const d=(v-128)/128; sum+=d*d;} const rms=Math.sqrt(sum/data.length); const pct=Math.min(100,Math.round(rms*260)); els.meterBar.style.width=pct+'%'; els.levelText.textContent=pct+'%'; raf=requestAnimationFrame(tick); }; tick(); return true; }catch(e){ setPill(els.permPill,'permission: '+(e.name||'blocked'),'red'); setPill(els.eventPill,'event: meter '+(e.name||'error'),'red'); return false; } }
+  function stopMeter(){ if(raf) cancelAnimationFrame(raf); raf=null; if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null;} if(audioCtx){ try{audioCtx.close();}catch(e){} audioCtx=null;} els.meterBar.style.width='0%'; els.levelText.textContent='0%'; }
+  async function startRecognition(){ if(!SR) return status('SpeechRecognition is not supported in this browser. Use Chrome.', 'error'); if(!pairs.length) return status('Load a script first.', 'error'); if(listening && recognition){ try{recognition.stop();}catch(e){} return; }
+    await startMeter();
+    recognition = new SR(); recognition.lang=els.lang.value; recognition.interimResults=true; recognition.continuous=false; recognition.maxAlternatives=1;
+    let finalText=''; listening=true; setPill(els.eventPill,'event: starting','amber'); status('Listening... Please speak your B phrase.', '');
+    recognition.onstart=()=>{setPill(els.eventPill,'event: recognition started','green');};
+    recognition.onspeechstart=()=>setPill(els.eventPill,'event: speech detected','green');
+    recognition.onerror=e=>{listening=false; stopMeter(); const msg=e&&e.error?e.error:'unknown'; setPill(els.eventPill,'event: '+msg,'red'); status('Recognition error: '+msg, 'error');};
+    recognition.onend=()=>{listening=false; stopMeter(); if(!finalText) setPill(els.eventPill,'event: ended','');};
+    recognition.onresult=e=>{ let interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const tx=e.results[i][0].transcript; if(e.results[i].isFinal) finalText+=tx; else interim+=tx; } const heard=(finalText||interim||'').trim(); els.heardBox.textContent=heard||'...'; if(finalText){ const sc=score(pairs[idx].b, finalText); const pass=Number(els.passLevel.value); setPill(els.scorePill,'Score: '+sc+'%', sc>=pass?'green':'red'); status(sc>=pass?'Good. Moving to the next phrase.':'Please try again. Score is below pass level.', sc>=pass?'ok':'error'); setPill(els.eventPill,'event: final result','green'); if(sc>=pass && els.autoNext.checked) setTimeout(next,900); } };
+    try{ recognition.start(); }catch(e){ listening=false; stopMeter(); setPill(els.eventPill,'event: start failed','red'); status('Could not start recognition: '+(e.message||e),'error'); }
+  }
+  function stopAll(){ try{ if(recognition) recognition.stop(); }catch(e){} speechSynthesis.cancel(); stopMeter(); listening=false; setPill(els.eventPill,'event: stopped',''); }
+  function next(){ if(!pairs.length)return; idx=(idx+1)%pairs.length; render(); }
+  function reset(){ stopAll(); idx=0; render(); status('Reset done.', ''); }
+  function saveSettings(){ localStorage.setItem('wpm_ext_gas_url', els.gasUrl.value.trim()); localStorage.setItem('wpm_ext_script', els.scriptBox.value); status('Settings saved locally.', 'ok'); }
+  function jsonp(url, cbName){ return new Promise((resolve,reject)=>{ const cb='__wpm_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2); window[cb]=data=>{cleanup(); resolve(data);}; const s=document.createElement('script'); const cleanup=()=>{delete window[cb]; if(s.parentNode)s.parentNode.removeChild(s);}; s.onerror=()=>{cleanup(); reject(new Error('JSONP failed'));}; s.src=url+(url.includes('?')?'&':'?')+'callback='+encodeURIComponent(cb); document.body.appendChild(s); setTimeout(()=>{ if(window[cb]){cleanup(); reject(new Error('JSONP timeout'));}},12000); }); }
+  async function loadFromGas(){ const base=els.gasUrl.value.trim(); if(!base) return status('Please enter your GAS Web App URL first.', 'error'); try{ setPill(els.gasStatus,'GAS: loading','amber'); const data=await jsonp(base+'?api=latestText'); if(data&&data.success&&data.text){ els.scriptBox.value=data.text; saveSettings(); pairs=parseScript(data.text); idx=0; render(); setPill(els.gasStatus,'GAS: loaded','green'); status('Loaded latest text from GAS.', 'ok'); } else { throw new Error(data&&data.message?data.message:'No text returned'); } }catch(e){ setPill(els.gasStatus,'GAS: failed','red'); status('Could not load from GAS. Add the Code.gs API patch first. '+(e.message||e), 'error'); } }
+  function checkSupport(){ setPill(els.supportSR, 'SpeechRecognition: '+(SR?'yes':'no'), SR?'green':'red'); setPill(els.supportMic, 'Mic API: '+(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?'yes':'no'), navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?'green':'red'); setPill(els.secureState, 'HTTPS: '+(window.isSecureContext?'yes':'no'), window.isSecureContext?'green':'red'); }
+  $('loadScriptBtn').onclick=()=>{ pairs=parseScript(els.scriptBox.value); idx=0; render(); saveSettings(); status(pairs.length?'Script loaded.':'No A/B pairs found.', pairs.length?'ok':'error'); };
+  $('sampleBtn').onclick=()=>{ els.scriptBox.value='A: Hey, how’s it going today?\nB: You look like something’s been bothering you a bit.\nA: What makes you say that?\nB: You seemed a little quiet in the meeting.\nA: Thanks for noticing.\nB: No problem. I just wanted to check in with you.'; pairs=parseScript(els.scriptBox.value); idx=0; render(); };
+  $('startBtn').onclick=()=>{ if(!pairs.length){ pairs=parseScript(els.scriptBox.value); idx=0; render(); } status('Started. Press Speak A or Speak B.', 'ok'); };
+  $('speakABtn').onclick=speakA; $('speakBBtn').onclick=startRecognition; $('stopBtn').onclick=stopAll; $('nextBtn').onclick=next; $('resetBtn').onclick=reset; $('saveSettingsBtn').onclick=saveSettings; $('loadFromGasBtn').onclick=loadFromGas;
+  els.gasUrl.value=localStorage.getItem('wpm_ext_gas_url')||''; els.scriptBox.value=localStorage.getItem('wpm_ext_script')||''; checkSupport(); if(els.scriptBox.value){ pairs=parseScript(els.scriptBox.value); render(); }
+})();
+</script>
+</body>
+</html>
