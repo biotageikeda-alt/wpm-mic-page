@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Mic Recognition</title>
+</head>
+<body style="font-family:sans-serif;padding:20px;background:#1e293b;color:#fff;">
+
+  <p style="font-size:12px;color:#94a3b8;margin-bottom:4px;">Target sentence:</p>
+  <p id="sentence" style="font-size:14px;color:#e2e8f0;background:#334155;
+     padding:10px;border-radius:6px;margin-bottom:16px;"></p>
+
+  <p id="status" style="color:#94a3b8;">🎙 ボタンを押して話してください</p>
+
+  <button id="btn" onclick="startRec()"
+    style="padding:12px 24px;font-size:16px;border-radius:8px;
+           background:#3b82f6;color:#fff;border:none;cursor:pointer;">
+    🎙 Start
+  </button>
+
+  <p id="result" style="margin-top:12px;font-size:13px;color:#7dd3fc;"></p>
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var sentence = params.get('sentence') || '';
+    var parentOrigin = params.get('origin') || '*';
+
+    document.getElementById('sentence').textContent = sentence || '(no sentence)';
+
+    function startRec(){
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!SR){
+        document.getElementById('status').textContent = '非対応ブラウザです';
+        return;
+      }
+
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        document.getElementById('status').textContent = 'このブラウザではマイクAPIが使えません';
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+        stream.getTracks().forEach(function(t){ t.stop(); });
+
+        var r = new SR();
+        r.lang = 'en-US';
+        r.interimResults = false;
+        r.continuous = false;
+        r.maxAlternatives = 1;
+
+        r.onstart = function(){
+          document.getElementById('status').textContent = '🔴 Listening...';
+        };
+
+        r.onresult = function(e){
+          var text = '';
+          try {
+            text = e.results[0][0].transcript || '';
+          } catch(err) {}
+
+          document.getElementById('result').textContent = '認識: ' + text;
+          document.getElementById('status').textContent = '✅ 完了';
+
+          if(window.opener){
+            window.opener.postMessage(
+              {
+                type: 'MIC_RESULT',
+                text: text,
+                target: sentence
+              },
+              parentOrigin
+            );
+          }
+
+          setTimeout(function(){
+            window.close();
+          }, 1200);
+        };
+
+        r.onerror = function(e){
+          var msg = e && e.error ? e.error : 'unknown';
+          document.getElementById('status').textContent = 'エラー: ' + msg;
+
+          if(window.opener){
+            window.opener.postMessage(
+              {
+                type: 'MIC_ERROR',
+                error: msg,
+                target: sentence
+              },
+              parentOrigin
+            );
+          }
+        };
+
+        r.onend = function(){
+          if(document.getElementById('status').textContent === '🔴 Listening...'){
+            document.getElementById('status').textContent = '停止しました';
+          }
+        };
+
+        r.start();
+
+      }).catch(function(err){
+        document.getElementById('status').textContent =
+          'マイク権限エラー: ' + (err.message || err.name || err);
+      });
+    }
+  </script>
+</body>
+</html>
