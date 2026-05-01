@@ -1,320 +1,524 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Chrome Mic Recognition</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Mic Recognition - WPM AI Talk</title>
+  <style>
+    :root{
+      --bg:#1e293b;
+      --panel:#0f172a;
+      --card:#334155;
+      --text:#f8fafc;
+      --muted:#93c5fd;
+      --line:#475569;
+      --blue:#3b82f6;
+      --blue2:#2563eb;
+      --rose:#f43f5e;
+      --green:#22c55e;
+      --amber:#f59e0b;
+      --gray:#64748b;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Yu Gothic UI",sans-serif;
+      min-height:100vh;
+      padding:24px;
+    }
+    .wrap{
+      width:min(720px,100%);
+      margin:0 auto;
+    }
+    .label{
+      color:#93c5fd;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.04em;
+      margin:0 0 8px;
+    }
+    .target{
+      background:var(--card);
+      color:#fff;
+      border-radius:7px;
+      padding:12px 14px;
+      font-size:16px;
+      line-height:1.55;
+      font-weight:800;
+      margin-bottom:10px;
+    }
+    .ipa{
+      display:none;
+      background:#2b3446;
+      color:#fde68a;
+      border:1px dashed var(--amber);
+      border-radius:8px;
+      padding:10px 12px;
+      font-size:15px;
+      line-height:1.7;
+      font-weight:800;
+      margin:8px 0 10px;
+    }
+    .hint{
+      color:#cbd5e1;
+      font-size:15px;
+      margin:16px 0 12px;
+      line-height:1.5;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin:10px 0;
+    }
+    button{
+      min-height:42px;
+      border:0;
+      border-radius:8px;
+      padding:0 16px;
+      color:#fff;
+      font-size:15px;
+      font-weight:900;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    button:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+    }
+    .primary{
+      background:var(--blue);
+    }
+    .primary:hover{
+      background:var(--blue2);
+    }
+    .stop{
+      background:var(--gray);
+    }
+    .speak{
+      background:#0ea5e9;
+    }
+    .mic{
+      background:var(--rose);
+    }
+    .next{
+      background:#6366f1;
+    }
+    .reset{
+      background:#475569;
+    }
+    .ipaBtn{
+      background:#f59e0b;
+      color:#1e293b;
+    }
+    .small{
+      min-height:32px;
+      padding:0 10px;
+      font-size:12px;
+      border-radius:999px;
+    }
+    .statusbar{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      min-height:26px;
+      padding:3px 9px;
+      border:1px solid #64748b;
+      border-radius:999px;
+      background:#263449;
+      color:#cbd5e1;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .pill.ready{
+      background:#dcfce7;
+      color:#166534;
+      border-color:#86efac;
+    }
+    .pill.waiting{
+      background:#fff7ed;
+      color:#9a3412;
+      border-color:#fdba74;
+    }
+    .pill.playing{
+      background:#dbeafe;
+      color:#1d4ed8;
+      border-color:#93c5fd;
+    }
+    .pill.error{
+      background:#fee2e2;
+      color:#991b1b;
+      border-color:#fca5a5;
+    }
+    .heard{
+      margin-top:14px;
+      background:#111827;
+      border:1px solid #374151;
+      border-radius:8px;
+      padding:10px 12px;
+      min-height:44px;
+      color:#e5e7eb;
+      font-size:14px;
+      line-height:1.5;
+    }
+    .event{
+      color:#93c5fd;
+      font-size:12px;
+      margin-top:12px;
+      line-height:1.45;
+      word-break:break-word;
+    }
+    .levelWrap{
+      flex:1 1 140px;
+      height:9px;
+      background:#334155;
+      border:1px solid #475569;
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .levelBar{
+      width:0%;
+      height:100%;
+      background:#22c55e;
+      transition:width .08s linear;
+    }
+    @media(max-width:520px){
+      body{
+        padding:18px;
+      }
+      button{
+        flex:1 1 auto;
+      }
+      .target{
+        font-size:15px;
+      }
+    }
+  </style>
 </head>
-<body style="font-family:sans-serif;padding:20px;background:#1e293b;color:#fff;">
+<body>
+  <div class="wrap">
+    <p class="label">Target sentence:</p>
+    <div id="targetText" class="target">Loading...</div>
+    <div id="ipaText" class="ipa"></div>
 
-  <p style="font-size:12px;color:#94a3b8;margin-bottom:4px;">Target sentence:</p>
-  <p id="sentence" style="font-size:14px;color:#e2e8f0;background:#334155;
-     padding:10px;border-radius:6px;margin-bottom:16px;"></p>
+    <div class="statusbar">
+      <span id="cacheStatus" class="pill">cache: -</span>
+      <span id="waitStatus" class="pill ready">status: ready</span>
+      <span id="roleStatus" class="pill">role: -</span>
+    </div>
 
-  <p id="status" style="color:#94a3b8;">🎙 Startを押して話してください</p>
+    <p class="hint">🎙 Startを押して話してください</p>
 
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <button id="btnStart" onclick="startRec()"
-      style="padding:12px 24px;font-size:16px;border-radius:8px;
-             background:#3b82f6;color:#fff;border:none;cursor:pointer;">
-      🎙 Start
-    </button>
+    <div class="row">
+      <button id="startBtn" class="primary">🎙 Start</button>
+      <button id="stopBtn" class="stop" disabled>■ Stop</button>
+    </div>
 
-    <button id="btnStop" onclick="stopRec()" disabled
-      style="padding:12px 24px;font-size:16px;border-radius:8px;
-             background:#64748b;color:#fff;border:none;cursor:pointer;opacity:.65;">
-      ■ Stop
-    </button>
+    <div class="row">
+      <button id="ipaBtn" class="ipaBtn small">IPA切替</button>
+      <button id="speakABtn" class="speak small">🔊 Speak A</button>
+      <button id="speakBBtn" class="speak small">🔊 Speak B</button>
+      <button id="nextBtn" class="next small">Next ▶</button>
+      <button id="resetBtn" class="reset small">Reset</button>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <span class="pill">mic level</span>
+      <div class="levelWrap">
+        <div id="levelBar" class="levelBar"></div>
+      </div>
+      <span id="levelText" class="pill">0%</span>
+    </div>
+
+    <div id="heardText" class="heard">Recognized speech will appear here.</div>
+    <div id="eventText" class="event">event: target updated / Chrome SpeechRecognition mode</div>
   </div>
 
-  <p id="result" style="margin-top:12px;font-size:13px;color:#7dd3fc;"></p>
-  <p id="debug" style="margin-top:12px;font-size:12px;color:#94a3b8;"></p>
-
   <script>
-    var params = new URLSearchParams(window.location.search);
-    var sentence = params.get('sentence') || '';
-    var parentOrigin = params.get('origin') || '*';
-    var role = params.get('role') || 'B';
+    (function(){
+      const params = new URLSearchParams(location.search);
 
-    var recognition = null;
-    var heardFinal = '';
-    var heardInterim = '';
-    var timer = null;
-    var isListening = false;
+      let target = params.get('sentence') || '';
+      let origin = params.get('origin') || '*';
+      let role = params.get('role') || 'B';
+      let ipa = params.get('ipa') || '';
+      let progress = params.get('progress') || '';
 
-    function setStatus(text, color){
-      var el = document.getElementById('status');
-      el.textContent = text;
-      el.style.color = color || '#94a3b8';
-    }
+      const $ = id => document.getElementById(id);
 
-    function setDebug(text){
-      document.getElementById('debug').textContent = text || '';
-    }
+      let rec = null;
+      let listening = false;
+      let audioStream = null;
+      let audioCtx = null;
+      let analyser = null;
+      let levelTimer = null;
+      let ipaVisible = false;
 
-    function setResult(text){
-      document.getElementById('result').textContent = text || '';
-    }
-
-    function renderSentence(){
-      document.getElementById('sentence').textContent = sentence || '(no sentence)';
-      document.title = 'Mic Recognition - Speaker ' + role;
-    }
-
-    function setButtons(listening){
-      isListening = listening;
-      var start = document.getElementById('btnStart');
-      var stop = document.getElementById('btnStop');
-      start.disabled = listening;
-      stop.disabled = !listening;
-      start.style.opacity = listening ? '.55' : '1';
-      stop.style.opacity = listening ? '1' : '.65';
-    }
-
-    function sendResult(text){
-      if(window.opener){
-        window.opener.postMessage(
-          {
-            type: 'MIC_RESULT',
-            text: text || '',
-            target: sentence,
-            role: role
-          },
-          parentOrigin
-        );
+      function setStatus(text, cls){
+        const el = $('waitStatus');
+        el.textContent = 'status: ' + text;
+        el.className = 'pill ' + (cls || '');
+        send({
+          type: 'MIC_STATUS',
+          status: text
+        });
       }
-    }
 
-    function sendReady(){
-      if(window.opener){
-        window.opener.postMessage(
-          {
-            type: 'MIC_READY',
-            target: sentence,
-            role: role
-          },
-          parentOrigin
-        );
+      function setCache(text, cls){
+        const el = $('cacheStatus');
+        el.textContent = 'cache: ' + text;
+        el.className = 'pill ' + (cls || '');
       }
-    }
 
-    function sendError(msg){
-      if(window.opener){
-        window.opener.postMessage(
-          {
+      function setEvent(text){
+        $('eventText').textContent = 'event: ' + text;
+      }
+
+      function send(data){
+        try{
+          if(window.opener && !window.opener.closed){
+            window.opener.postMessage(
+              data,
+              origin === 'null' ? '*' : origin
+            );
+          }
+        }catch(e){}
+      }
+
+      function updateTarget(nextTarget, nextRole, nextIpa, nextProgress){
+        target = nextTarget || target;
+        role = nextRole || role || 'B';
+        ipa = nextIpa || '';
+        progress = nextProgress || '';
+
+        $('targetText').textContent = target || '-';
+        $('ipaText').textContent = ipa || 'IPA is not available for this sentence.';
+        $('roleStatus').textContent = 'role: ' + role + (progress ? ' / ' + progress : '');
+
+        setCache('ready', 'ready');
+        setStatus('ready', 'ready');
+        setEvent('target updated / Chrome SpeechRecognition mode');
+      }
+
+      async function initMicLevel(){
+        try{
+          if(audioStream) return;
+
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: true
+          });
+
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = audioCtx.createMediaStreamSource(audioStream);
+
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          src.connect(analyser);
+
+          const data = new Uint8Array(analyser.frequencyBinCount);
+
+          levelTimer = setInterval(function(){
+            if(!analyser) return;
+
+            analyser.getByteFrequencyData(data);
+
+            let sum = 0;
+            for(let i = 0; i < data.length; i++){
+              sum += data[i];
+            }
+
+            const level = Math.min(100, Math.round((sum / data.length) * 1.2));
+
+            $('levelBar').style.width = level + '%';
+            $('levelText').textContent = level + '%';
+          }, 120);
+        }catch(e){
+          setEvent('mic level unavailable: ' + (e.message || e));
+        }
+      }
+
+      function startRecognition(){
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if(!SR){
+          setStatus('SpeechRecognition not supported', 'error');
+          send({
             type: 'MIC_ERROR',
-            error: msg || 'unknown',
-            target: sentence,
-            role: role
-          },
-          parentOrigin
-        );
-      }
-    }
-
-    function cleanup(){
-      if(timer){
-        clearTimeout(timer);
-        timer = null;
-      }
-      setButtons(false);
-    }
-
-    function resetForNewSentence(newSentence, newRole){
-      sentence = newSentence || '';
-      role = newRole || role || 'B';
-      renderSentence();
-      heardFinal = '';
-      heardInterim = '';
-      setResult('');
-      setStatus('🎙 Startを押して話してください', '#94a3b8');
-      setDebug('event: target updated / Chrome SpeechRecognition mode');
-      try {
-        if(recognition && isListening){
-          recognition.stop();
+            error: 'SpeechRecognition not supported'
+          });
+          return;
         }
-      } catch(e){}
-      cleanup();
-      window.focus();
-      sendReady();
-    }
 
-    function finishWithText(text){
-      cleanup();
-      var finalText = text || heardFinal || heardInterim || '';
-      setResult(finalText ? ('認識: ' + finalText) : '認識結果なし');
-      setStatus(finalText ? '✅ 完了' : '⚠️ 認識結果なし', finalText ? '#86efac' : '#fbbf24');
+        try{
+          if(rec) rec.abort();
+        }catch(e){}
 
-      if(finalText){
-        sendResult(finalText);
-        // 再利用方式なので閉じない
-      }
-    }
+        rec = new SR();
+        rec.lang = 'en-US';
+        rec.interimResults = true;
+        rec.continuous = false;
 
-    function stopRec(){
-      try {
-        if(recognition && isListening){
-          setStatus('Stopping...', '#fbbf24');
-          recognition.stop();
-        } else {
-          finishWithText('');
-        }
-      } catch(e){
-        finishWithText(heardFinal || heardInterim || '');
-      }
-    }
+        let finalText = '';
 
-    function startRec(){
-      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if(!SR){
-        setStatus('非対応ブラウザです', '#fca5a5');
-        sendError('SpeechRecognition not supported');
-        return;
-      }
+        rec.onstart = function(){
+          listening = true;
+          $('startBtn').disabled = true;
+          $('stopBtn').disabled = false;
 
-      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        setStatus('このブラウザではマイクAPIが使えません', '#fca5a5');
-        sendError('getUserMedia not supported');
-        return;
-      }
+          setStatus('listening', 'waiting');
+          setEvent('listening');
 
-      heardFinal = '';
-      heardInterim = '';
-      setResult('');
-      setDebug('Preparing microphone...');
-
-      navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-        stream.getTracks().forEach(function(t){ t.stop(); });
-
-        recognition = new SR();
-        recognition.lang = 'en-US';
-        recognition.interimResults = true;
-        recognition.continuous = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onstart = function(){
-          setButtons(true);
-          setStatus('🔴 Listening... Speak now.', '#bfdbfe');
-          setDebug('event: recognition started / Chrome SpeechRecognition');
-
-          timer = setTimeout(function(){
-            setDebug('event: timeout auto-stop');
-            try {
-              if(recognition && isListening) recognition.stop();
-            } catch(e){}
-            setTimeout(function(){
-              if(isListening){
-                finishWithText(heardFinal || heardInterim || '');
-              }
-            }, 300);
-          }, 10000);
+          initMicLevel();
         };
 
-        recognition.onspeechstart = function(){
-          setStatus('🎧 Speech detected...', '#bfdbfe');
-          setDebug('event: speech detected');
-        };
+        rec.onresult = function(ev){
+          let interim = '';
 
-        recognition.onspeechend = function(){
-          setStatus('Processing...', '#fbbf24');
-          setDebug('event: speech ended');
-          try { recognition.stop(); } catch(e){}
-        };
+          for(let i = ev.resultIndex; i < ev.results.length; i++){
+            const text = ev.results[i][0].transcript || '';
 
-        recognition.onresult = function(e){
-          var interim = '';
-          var finalText = '';
-
-          for(var i = e.resultIndex; i < e.results.length; i++){
-            var text = '';
-            try { text = e.results[i][0].transcript || ''; } catch(err){}
-            if(e.results[i].isFinal){
-              finalText += text;
-            } else {
+            if(ev.results[i].isFinal){
+              finalText += text + ' ';
+            }else{
               interim += text;
             }
           }
 
-          if(interim){
-            heardInterim = interim;
-            setResult('途中認識: ' + interim);
-            setDebug('event: interim result');
-          }
+          $('heardText').textContent = (finalText + interim).trim() || 'Listening...';
+        };
 
-          if(finalText){
-            heardFinal += finalText;
-            setDebug('event: final result');
-            finishWithText(heardFinal);
+        rec.onerror = function(ev){
+          listening = false;
+          $('startBtn').disabled = false;
+          $('stopBtn').disabled = true;
+
+          const err = ev && ev.error ? ev.error : 'unknown';
+
+          setStatus('error', 'error');
+          setEvent('error: ' + err);
+
+          send({
+            type: 'MIC_ERROR',
+            error: err
+          });
+        };
+
+        rec.onend = function(){
+          listening = false;
+          $('startBtn').disabled = false;
+          $('stopBtn').disabled = true;
+
+          const heard = $('heardText').textContent || finalText.trim();
+
+          setStatus('ready', 'ready');
+          setEvent('recognition ended');
+
+          if(
+            heard &&
+            heard !== 'Listening...' &&
+            heard !== 'Recognized speech will appear here.'
+          ){
+            send({
+              type: 'MIC_RESULT',
+              text: heard.trim(),
+              role: role,
+              target: target
+            });
           }
         };
 
-        recognition.onerror = function(e){
-          var msg = e && e.error ? e.error : 'unknown';
-          cleanup();
+        $('heardText').textContent = 'Listening...';
 
-          if(msg === 'no-speech'){
-            setStatus('音声が検出されませんでした。もう一度Startを押してください。', '#fbbf24');
-          } else if(msg === 'not-allowed'){
-            setStatus('マイクがブロックされています。ブラウザで許可してください。', '#fca5a5');
-          } else if(msg === 'aborted'){
-            setStatus('停止しました。', '#fbbf24');
-          } else {
-            setStatus('エラー: ' + msg, '#fca5a5');
-          }
+        try{
+          rec.start();
+        }catch(e){
+          setEvent('start failed: ' + (e.message || e));
+        }
+      }
 
-          setDebug('event: recognition error: ' + msg);
-          sendError(msg);
-        };
+      function stopRecognition(){
+        try{
+          if(rec) rec.stop();
+        }catch(e){}
 
-        recognition.onend = function(){
-          if(timer){
-            clearTimeout(timer);
-            timer = null;
-          }
+        setEvent('manual stop');
+      }
 
-          if(isListening){
-            setButtons(false);
-            if(heardFinal || heardInterim){
-              finishWithText(heardFinal || heardInterim);
-            } else {
-              setStatus('停止しました。認識結果がありません。もう一度Startを押してください。', '#fbbf24');
-              setDebug('event: recognition ended without result');
-            }
-          }
-        };
+      function requestParent(action){
+        setStatus(
+          action.toLowerCase(),
+          action === 'NEXT' ? 'waiting' : 'playing'
+        );
 
-        try {
-          recognition.start();
-        } catch(e){
-          cleanup();
-          setStatus('開始できません: ' + (e.message || e), '#fca5a5');
-          setDebug('event: start exception');
-          sendError(e.message || String(e));
+        send({
+          type: 'MIC_CONTROL',
+          action: action,
+          role: role,
+          target: target
+        });
+      }
+
+      window.addEventListener('message', function(e){
+        const d = e.data || {};
+
+        if(d.type === 'MIC_TARGET'){
+          updateTarget(
+            d.sentence || d.target,
+            d.role,
+            d.ipa,
+            d.progress
+          );
         }
 
-      }).catch(function(err){
-        cleanup();
-        setStatus('マイク権限エラー: ' + (err.message || err.name || err), '#fca5a5');
-        setDebug('event: getUserMedia error');
-        sendError(err.message || err.name || String(err));
+        if(d.type === 'MIC_PARENT_STATUS'){
+          if(d.status){
+            setStatus(d.status, d.className || '');
+          }
+
+          if(d.cache){
+            setCache(d.cache, d.cacheClass || '');
+          }
+        }
       });
-    }
 
-    window.addEventListener('message', function(e){
-      if(e.data && e.data.type === 'SET_TARGET'){
-        if(e.origin){
-          parentOrigin = e.origin;
-        }
-        resetForNewSentence(e.data.sentence || '', e.data.role || role);
-      }
+      $('startBtn').addEventListener('click', startRecognition);
+      $('stopBtn').addEventListener('click', stopRecognition);
 
-      if(e.data && e.data.type === 'START_MIC'){
-        startRec();
-      }
-    });
+      $('ipaBtn').addEventListener('click', function(){
+        ipaVisible = !ipaVisible;
 
-    renderSentence();
-    sendReady();
+        $('ipaText').style.display = ipaVisible ? 'block' : 'none';
+        $('ipaBtn').textContent = ipaVisible ? 'English表示' : 'IPA切替';
+      });
+
+      $('speakABtn').addEventListener('click', function(){
+        requestParent('SPEAK_A');
+      });
+
+      $('speakBBtn').addEventListener('click', function(){
+        requestParent('SPEAK_B');
+      });
+
+      $('nextBtn').addEventListener('click', function(){
+        requestParent('NEXT');
+      });
+
+      $('resetBtn').addEventListener('click', function(){
+        requestParent('RESET');
+      });
+
+      updateTarget(target, role, ipa, progress);
+    })();
   </script>
 </body>
 </html>
