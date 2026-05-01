@@ -41,8 +41,6 @@
     var timer = null;
     var isListening = false;
 
-    document.getElementById('sentence').textContent = sentence || '(no sentence)';
-
     function setStatus(text, color){
       var el = document.getElementById('status');
       el.textContent = text;
@@ -51,6 +49,14 @@
 
     function setDebug(text){
       document.getElementById('debug').textContent = text || '';
+    }
+
+    function setResult(text){
+      document.getElementById('result').textContent = text || '';
+    }
+
+    function renderSentence(){
+      document.getElementById('sentence').textContent = sentence || '(no sentence)';
     }
 
     function setButtons(listening){
@@ -69,6 +75,18 @@
           {
             type: 'MIC_RESULT',
             text: text || '',
+            target: sentence
+          },
+          parentOrigin
+        );
+      }
+    }
+
+    function sendReady(){
+      if(window.opener){
+        window.opener.postMessage(
+          {
+            type: 'MIC_READY',
             target: sentence
           },
           parentOrigin
@@ -97,16 +115,34 @@
       setButtons(false);
     }
 
+    function resetForNewSentence(newSentence){
+      sentence = newSentence || '';
+      renderSentence();
+      heardFinal = '';
+      heardInterim = '';
+      setResult('');
+      setStatus('🎙 Startを押して話してください', '#94a3b8');
+      setDebug('event: target updated');
+      try {
+        if(recognition && isListening){
+          recognition.stop();
+        }
+      } catch(e){}
+      cleanup();
+      window.focus();
+      sendReady();
+    }
+
     function finishWithText(text, autoClose){
       cleanup();
       var finalText = text || heardFinal || heardInterim || '';
-      document.getElementById('result').textContent =
-        finalText ? ('認識: ' + finalText) : '認識結果なし';
+      setResult(finalText ? ('認識: ' + finalText) : '認識結果なし');
       setStatus(finalText ? '✅ 完了' : '⚠️ 認識結果なし', finalText ? '#86efac' : '#fbbf24');
 
       if(finalText){
         sendResult(finalText);
-        if(autoClose !== false){
+        // ★ 再利用方式なので、基本的に自動で閉じない
+        if(autoClose === true){
           setTimeout(function(){ window.close(); }, 1200);
         }
       }
@@ -141,15 +177,13 @@
 
       heardFinal = '';
       heardInterim = '';
-      document.getElementById('result').textContent = '';
+      setResult('');
       setDebug('Preparing microphone...');
 
       navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
         stream.getTracks().forEach(function(t){ t.stop(); });
 
         recognition = new SR();
-
-        // 英語メイン。ただし日本語混じりでもChrome側が拾うことがあります。
         recognition.lang = 'en-US';
         recognition.interimResults = true;
         recognition.continuous = false;
@@ -160,7 +194,6 @@
           setStatus('🔴 Listening... Speak now.', '#bfdbfe');
           setDebug('event: recognition started');
 
-          // 10秒で自動停止。Listening...で固まる対策。
           timer = setTimeout(function(){
             setDebug('event: timeout auto-stop');
             try {
@@ -201,14 +234,14 @@
 
           if(interim){
             heardInterim = interim;
-            document.getElementById('result').textContent = '途中認識: ' + interim;
+            setResult('途中認識: ' + interim);
             setDebug('event: interim result');
           }
 
           if(finalText){
             heardFinal += finalText;
             setDebug('event: final result');
-            finishWithText(heardFinal, true);
+            finishWithText(heardFinal, false);
           }
         };
 
@@ -239,7 +272,7 @@
           if(isListening){
             setButtons(false);
             if(heardFinal || heardInterim){
-              finishWithText(heardFinal || heardInterim, true);
+              finishWithText(heardFinal || heardInterim, false);
             } else {
               setStatus('停止しました。認識結果がありません。もう一度Startを押してください。', '#fbbf24');
               setDebug('event: recognition ended without result');
@@ -263,6 +296,24 @@
         sendError(err.message || err.name || String(err));
       });
     }
+
+    // ★ 親GAS画面から対象文を受け取って、同じポップアップを再利用する
+    window.addEventListener('message', function(e){
+      // GitHub Pagesの単体テスト時は origin が合わないこともあるため、親originを更新
+      if(e.data && e.data.type === 'SET_TARGET'){
+        if(e.origin){
+          parentOrigin = e.origin;
+        }
+        resetForNewSentence(e.data.sentence || '');
+      }
+
+      if(e.data && e.data.type === 'START_MIC'){
+        startRec();
+      }
+    });
+
+    renderSentence();
+    sendReady();
   </script>
 </body>
 </html>
