@@ -1,156 +1,153 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mic Recognition - Breathing Stable</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mic Recognition - AI Talk</title>
 <style>
-/* 省略: CSSは以前の0502U版そのまま利用可能 */
+body { font-family: sans-serif; background: #1e1e2f; color: #fff; margin: 0; padding: 10px; }
+.controls { display: flex; gap: 8px; margin: 10px 0; }
+.controls button { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; }
+.yellow { background: #f59e0b; color: #fff; }
+.cyan { background: #0ea5e9; color: #fff; }
+.purple { background: #a78bfa; color: #fff; }
+.gray { background: #475569; color: #fff; }
+.wide { flex: 1; background: #6b7280; color: #fff; }
+#sentence { margin-bottom: 6px; padding: 6px; background: #2a2a3d; border-radius: 6px; }
+.badges { margin-bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+#micLevel { width: 100%; height: 12px; background: #334155; border-radius: 6px; margin-bottom: 10px; }
+#micLevelBar { height: 100%; width: 0%; background: #0ea5e9; border-radius: 6px; }
+#recognizedText { background: #2a2a3d; padding: 8px; border-radius: 6px; min-height: 30px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
-<div class="label">Target sentence:</div>
-<div id="sentence" class="sentence">(no sentence)</div>
+
+<div id="sentence">Target sentence:</div>
 <div class="badges">
-  <span class="badge ok">cache: ready</span>
-  <span id="statusBadge" class="badge ok">status: ready</span>
-  <span id="roleBadge" class="badge">role: B</span>
-  <span id="modeBadge" class="badge">mode: standard</span>
+  <span class="badge" id="cacheStatus">cache: -</span>
+  <span class="badge" id="status">status: idle</span>
+  <span class="badge" id="role">role: -</span>
+  <span class="badge" id="mode">mode: -</span>
 </div>
-<div id="status" class="status">🎙 Startを押して話してください</div>
+
 <div class="controls">
-  <button id="startBtn" onclick="startRec()">🎙 Start</button>
-  <button id="stopBtn" class="stop" onclick="stopRec()" disabled>■ Stop</button>
-</div>
-<div class="controls subBtns">
-  <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
+  <button id="startBtn">▶ Start</button>
+  <button id="stopBtn">■ Stop</button>
+  <button class="yellow" onclick="toggleIPA()">英+IPA</button>
   <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
   <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
   <button class="gray" onclick="sendPrev()">◀ Prev</button>
   <button class="purple" onclick="sendNext()">Next ▶</button>
   <button class="wide" onclick="resetView()">Reset</button>
 </div>
-<div class="meterWrap">
-  <span>mic level</span>
-  <div class="meter"><div id="bar" class="bar"></div></div>
-  <span id="levelText">0%</span>
-</div>
-<div id="result" class="result"></div>
-<div class="previewBox">
-  <div class="previewTitle">Script preview</div>
-  <div id="scriptPreview" class="previewText">(no script preview)</div>
-</div>
-<div id="debug" class="debug">event: idle</div>
+
+<div id="micLevel"><div id="micLevelBar"></div></div>
+<div id="recognizedText">Listening...</div>
 
 <script>
-// ==============================
-// 0502U Breathing-Stable Mic JS
-// ==============================
-(function(){
-  window.__micPageBuild = 'mic_html_0502U_breathing_stable_recognition';
+var recognition = null;
+var isListening = false;
+var manualStop = false;
+var heardFinal = '';
+var heardInterim = '';
+var soundEndTimer = null;
+var lastRestartAt = 0;
+var MAX_LISTEN_MS = 22000;
+var SOUND_END_GRACE_MS = 700;
 
-  var params = new URLSearchParams(location.search);
-  var sentence = params.get('sentence') || '';
-  var role = params.get('role') || 'B';
-  var scriptPreview = params.get('script') || '';
-  var parentOrigin = params.get('origin') || 'https://script.google.com';
-  var token = params.get('token') || 'wpm_mic_result_latest';
-  var mode = params.get('mode') || 'popup';
+// Start recognition
+function startRec(){
+  manualStop = false;
+  heardFinal = '';
+  heardInterim = '';
+  if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer = null; }
 
-  // IPA
-  var ipaMode = 0;
-  var receivedIpa = params.get('ipa') || '';
-  var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
+  recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+  recognition.lang = 'en-US';
 
-  // Speech Recognition
-  var recognition = null;
-  var isListening = false;
-  var manualStop = false;
-  var soundEndTimer = null;
-  var lastRestartAt = 0;
-  var heardFinal = '';
-  var heardInterim = '';
+  isListening = true;
+  recognition.start();
 
-  var MAX_LISTEN_MS = navigator.userAgent.indexOf('Android')>=0 ? 25000 : 22000;
-  var SILENCE_END_MS = navigator.userAgent.indexOf('Android')>=0 ? 12000 : 10000;
-  var SOUND_END_GRACE_MS = 700;
-
-  function setStatus(text, cls){ var el=document.getElementById('status'); if(el){el.textContent=text||''; el.className='status '+(cls||''); } }
-  function setDebug(text){ var el=document.getElementById('debug'); if(el) el.textContent=text||''; }
-
-  function startRec(){
-    if(isListening) return;
-    manualStop = false;
-    if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer=null; }
-
-    heardFinal = '';
+  recognition.onresult = function(event){
     heardInterim = '';
-
-    try{
-      navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
-
-        recognition.onsoundend = function(){
-          if(soundEndTimer) clearTimeout(soundEndTimer);
-          soundEndTimer = setTimeout(function(){
-            setDebug('event: silence confirmed (auto-restart)');
-          }, SOUND_END_GRACE_MS);
-        };
-        recognition.onsoundstart = function(){
-          if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer=null; }
-          setDebug('event: sound resumed (息継ぎだった)');
-        };
-
-        recognition.onresult = function(event){
-          var finalText='', interimText='';
-          for(var i=event.resultIndex;i<event.results.length;i++){
-            var t=event.results[i][0].transcript||'';
-            if(event.results[i].isFinal) finalText+=t; else interimText+=t;
-          }
-          if(finalText.trim()) heardFinal += (heardFinal?' ':'')+finalText.trim();
-          if(interimText.trim()) heardInterim = interimText.trim();
-          var show = heardFinal || heardInterim;
-          if(show) document.getElementById('result').textContent = '認識: '+show;
-        };
-
-        recognition.onend = function(){
-          if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer=null; }
-          if(!isListening || manualStop){
-            var text = heardFinal || heardInterim || '';
-            if(isListening) finishWithText(text,false);
-            else cleanupRecognition();
-            return;
-          }
-          var sinceLast = Date.now() - lastRestartAt;
-          var delay = Math.max(250,300-sinceLast);
-          setDebug('event: auto-restart in '+delay+'ms');
-          setTimeout(function(){
-            if(!isListening || manualStop) return;
-            try{ lastRestartAt=Date.now(); recognition.start(); }
-            catch(e){ finishWithText(heardFinal || heardInterim || '', false); }
-          }, delay);
-        };
-
-        recognition.onerror = function(e){
-          if(e && e.error==='not-allowed'){ setStatus('マイク権限エラー', 'err'); }
-        };
-
-        recognition.start();
-        isListening=true;
-        setStatus('Listening...', 'listening');
-      });
-    }catch(e){
-      setStatus('音声認識開始失敗', 'err');
-      setDebug('exception: '+(e.message||e));
+    for(var i=event.resultIndex;i<event.results.length;i++){
+      var res = event.results[i][0].transcript || '';
+      if(event.results[i].isFinal) heardFinal += res + ' ';
+      else heardInterim += res + ' ';
     }
-  }
+    updateRecognizedText();
+  };
 
-  function stopRec(){ manualStop=true; if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer=null; } try{ if(recognition && isListening) recognition.stop(); }catch(e){} }
+  recognition.onsoundend = function(){
+    if(soundEndTimer) clearTimeout(soundEndTimer);
+    soundEndTimer = setTimeout(function(){
+      setDebug('event: silence confirmed (auto-restart)');
+    }, SOUND_END_GRACE_MS);
+  };
 
-})();
+  recognition.onsoundstart = function(){
+    if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer = null; }
+    setDebug('event: sound resumed (breath detected)');
+  };
+
+  recognition.onend = function(){
+    if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer = null; }
+    if(!isListening || manualStop){
+      finishWithText(heardFinal + heardInterim, false);
+      return;
+    }
+    var sinceLast = Date.now() - lastRestartAt;
+    var delay = Math.max(250, 300 - sinceLast);
+    setDebug('event: auto-restart in '+delay+'ms');
+    setTimeout(function(){
+      if(!isListening || manualStop) return;
+      try{ lastRestartAt = Date.now(); recognition.start(); }catch(e){ finishWithText(heardFinal + heardInterim,false);}
+    }, delay);
+  };
+}
+
+// Stop recognition
+function stopRec(){
+  manualStop = true;
+  isListening = false;
+  if(soundEndTimer){ clearTimeout(soundEndTimer); soundEndTimer = null; }
+  if(recognition) recognition.stop();
+}
+
+// Update recognized text display
+function updateRecognizedText(){
+  document.getElementById('recognizedText').textContent = heardFinal + heardInterim;
+}
+
+// Debug helper
+function setDebug(msg){ console.log(msg); }
+
+// Prev / Next
+function sendPrev(){ postToParent({type:'MIC_PREV', role:'B', target:document.getElementById('sentence').textContent}); }
+function sendNext(){ postToParent({type:'MIC_NEXT', role:'B', target:document.getElementById('sentence').textContent}); }
+
+// Placeholder Speak
+function speakRole(role){ console.log('Speak role', role); }
+
+// IPA toggle placeholder
+function toggleIPA(){ console.log('Toggle IPA'); }
+
+// Finish with text
+function finishWithText(text, success){
+  document.getElementById('recognizedText').textContent = text;
+  setDebug('event: speech finished with text: '+text);
+}
+
+// Reset
+function resetView(){
+  document.getElementById('recognizedText').textContent = 'Listening...';
+  heardFinal = '';
+  heardInterim = '';
+  stopRec();
+}
 </script>
 </body>
 </html>
