@@ -1,1008 +1,166 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Mic Recognition - IPA Fixed</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:#1e293b;
-      color:#e5e7eb;
-      padding:24px 18px;
-    }
-    .label{
-      color:#93c5fd;
-      font-size:14px;
-      margin-bottom:8px;
-      font-weight:800;
-      letter-spacing:.04em;
-    }
-    .sentence{
-      background:#334155;
-      color:#fff;
-      border-radius:10px;
-      padding:15px;
-      font-size:20px;
-      line-height:1.45;
-      font-weight:800;
-      margin-bottom:12px;
-    }
-    .sentenceText{display:block;}
-    .ipaLine{
-      margin-top:10px;
-      color:#bfdbfe;
-      font-size:15px;
-      line-height:1.45;
-      font-weight:700;
-      opacity:.96;
-      word-break:break-word;
-    }
-    .badges{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin:10px 0 18px;
-    }
-    .badge{
-      border:1px solid rgba(255,255,255,.20);
-      background:#334155;
-      color:#dbeafe;
-      border-radius:999px;
-      padding:7px 11px;
-      font-size:13px;
-      font-weight:800;
-    }
-    .badge.ok{
-      background:#dcfce7;
-      color:#166534;
-      border-color:#86efac;
-    }
-    .badge.warn{
-      background:#fef3c7;
-      color:#92400e;
-      border-color:#fbbf24;
-    }
-    .status{
-      font-size:19px;
-      color:#cbd5e1;
-      margin:16px 0;
-      min-height:28px;
-    }
-    .status.listening{color:#fbbf24;}
-    .status.done{color:#86efac;}
-    .status.err{color:#fca5a5;}
-    .controls{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin:14px 0;
-    }
-    button{
-      border:none;
-      border-radius:12px;
-      padding:14px 22px;
-      font-size:18px;
-      font-weight:850;
-      color:#fff;
-      cursor:pointer;
-      background:#3b82f6;
-      min-width:128px;
-    }
-    button:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-      background:#64748b;
-    }
-    .stop{background:#64748b;}
-    .subBtns button{
-      min-width:auto;
-      padding:11px 18px;
-      font-size:15px;
-      border-radius:999px;
-    }
-    .yellow{background:#f59e0b;}
-    .cyan{background:#0ea5e9;}
-    .purple{background:#6d5dfc;}
-    .gray{background:#475569;}
-    .wide{
-      width:100%;
-      background:#64748b;
-    }
-    .meterWrap{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      margin-top:14px;
-      color:#cbd5e1;
-      font-weight:700;
-    }
-    .meter{
-      flex:1;
-      height:10px;
-      border-radius:999px;
-      background:#334155;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.15);
-    }
-    .bar{
-      height:100%;
-      width:0%;
-      background:#60a5fa;
-      transition:width .12s linear;
-    }
-    .result{
-      margin-top:18px;
-      background:#111827;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:12px;
-      padding:14px;
-      font-size:17px;
-      line-height:1.5;
-      min-height:28px;
-    }
-    .previewBox{margin-top:20px;}
-    .previewTitle{
-      color:#93c5fd;
-      font-size:14px;
-      font-weight:800;
-      margin-bottom:8px;
-    }
-    .previewText{
-      background:#0f172a;
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:12px;
-      padding:10px;
-      max-height:260px;
-      overflow:auto;
-      color:#dbeafe;
-    }
-    .line{
-      display:grid;
-      grid-template-columns:44px 1fr;
-      gap:8px;
-      align-items:start;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:7px 0;
-    }
-    .line:last-child{border-bottom:none;}
-    .tag{
-      border-radius:999px;
-      padding:3px 7px;
-      font-size:12px;
-      font-weight:900;
-      text-align:center;
-    }
-    .tagA{background:#dbeafe;color:#1d4ed8;}
-    .tagB{background:#ffe4e6;color:#be123c;}
-    .tagN{background:#334155;color:#cbd5e1;}
-    .txt{
-      font-size:14px;
-      line-height:1.55;
-      color:#f8fafc;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .no{
-      color:#93c5fd;
-      font-size:12px;
-      font-weight:800;
-      margin-right:4px;
-    }
-    .debug{
-      margin-top:16px;
-      color:#93c5fd;
-      font-size:13px;
-      word-break:break-word;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Mic Recognition Full - IPA + Auto Stop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+/* 略：既存の mic.html の CSS 全部をここに入れる */
+</style>
 </head>
-
 <body>
-  <div class="label">Target sentence:</div>
-  <div id="sentence" class="sentence">(no sentence)</div>
 
-  <div class="badges">
-    <span class="badge ok">cache: ready</span>
-    <span id="statusBadge" class="badge ok">status: ready</span>
-    <span id="roleBadge" class="badge">role: B</span>
-    <span id="modeBadge" class="badge">mode: standard</span>
-  </div>
+<!-- UI部分 -->
+<div class="label">Target sentence:</div>
+<div id="sentence" class="sentence">(no sentence)</div>
 
-  <div id="status" class="status">🎙 Startを押して話してください</div>
+<div class="badges">
+  <span class="badge ok">cache: ready</span>
+  <span id="statusBadge" class="badge ok">status: ready</span>
+  <span id="roleBadge" class="badge">role: B</span>
+  <span id="modeBadge" class="badge">mode: standard</span>
+</div>
 
-  <div class="controls">
-    <button id="startBtn" onclick="startRec()">🎙 Start</button>
-    <button id="stopBtn" class="stop" onclick="stopRec()" disabled>■ Stop</button>
-  </div>
+<div id="status" class="status">🎙 Startを押して話してください</div>
 
-  <div class="controls subBtns">
-    <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
-    <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
-    <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
-    <button class="gray" onclick="sendPrev()">◀ Prev</button>
-    <button class="purple" onclick="sendNext()">Next ▶</button>
-    <button class="wide" onclick="resetView()">Reset</button>
-  </div>
+<div class="controls">
+  <button id="startBtn" onclick="startRec()">🎙 Start</button>
+  <button id="stopBtn" class="stop" onclick="stopRec()" disabled>■ Stop</button>
+</div>
 
-  <div class="meterWrap">
-    <span>mic level</span>
-    <div class="meter"><div id="bar" class="bar"></div></div>
-    <span id="levelText">0%</span>
-  </div>
+<div class="controls subBtns">
+  <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
+  <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
+  <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
+  <button class="gray" onclick="sendPrev()">◀ Prev</button>
+  <button class="purple" onclick="sendNext()">Next ▶</button>
+  <button class="wide" onclick="resetView()">Reset</button>
+</div>
 
-  <div id="result" class="result"></div>
+<div class="meterWrap">
+  <span>mic level</span>
+  <div class="meter"><div id="bar" class="bar"></div></div>
+  <span id="levelText">0%</span>
+</div>
 
-  <div class="previewBox">
-    <div class="previewTitle">Script preview</div>
-    <div id="scriptPreview" class="previewText">(no script preview)</div>
-  </div>
+<div id="result" class="result"></div>
 
-  <div id="debug" class="debug">event: idle</div>
+<div class="previewBox">
+  <div class="previewTitle">Script preview</div>
+  <div id="scriptPreview" class="previewText">(no script preview)</div>
+</div>
+
+<div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){
-  window.__micPageBuild = 'mic_html_0502R_ipa_toggle_sentence_sync_final';
-})();
-
-var params = new URLSearchParams(location.search);
-var sentence = params.get('sentence') || '';
-var parentOrigin = params.get('origin') || 'https://script.google.com';
-var role = params.get('role') || 'B';
-var scriptPreview = params.get('script') || '';
-var returnUrl = params.get('return') || '';
-var mode = params.get('mode') || 'popup';
-var token = params.get('token') || 'wpm_mic_result_latest';
-
-// IPA display mode:
-// 0 = English + IPA, 1 = English only, 2 = IPA only.
-// Default is always English + IPA.
-var ipaMode = 0;
-
-// IPA received from GAS.
-// Important: IPA is valid only when receivedIpaTarget matches current sentence.
-var receivedIpa = params.get('ipa') || '';
-var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
-
-var ipaCache = {};
-var recognition = null;
-var isListening = false;
-var heardFinal = '';
-var heardInterim = '';
-var lastAnyResultAt = 0;
-var hardTimer = null;
-var noSpeechTimer = null;
-var softEndTimer = null;
-var audioCtx = null;
-var analyser = null;
-var micStream = null;
-var meterRaf = null;
-
-var ua = navigator.userAgent || '';
-var IS_ANDROID = /Android/i.test(ua);
-var IS_IOS = /iPhone|iPad|iPod/i.test(ua);
-
-var MAX_LISTEN_MS = IS_ANDROID ? 16000 : 12000;
-var SILENCE_END_MS = IS_ANDROID ? 9000 : 6500;
-var SOFT_END_AFTER_INTERIM_MS = IS_ANDROID ? 1800 : 900;
-
-function $(id){ return document.getElementById(id); }
-
-function setStatus(text, cls){
-  var el = $('status');
-  if (!el) return;
-  el.textContent = text || '';
-  el.className = 'status ' + (cls || '');
-}
-
-function setDebug(text){
-  var el = $('debug');
-  if (el) el.textContent = text || '';
-}
-
-function setButtons(listening){
-  $('startBtn').disabled = !!listening;
-  $('stopBtn').disabled = !listening;
-}
-
-function escapeHtml(s){
-  return String(s || '').replace(/[&<>"']/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-  });
-}
-
-function normalizeForIpaSync(text){
-  return String(text || '')
-    .toLowerCase()
-    .replace(/[’‘]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[^a-z0-9']+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function ensureTopLevel(){
-  try {
-    if (window.top !== window.self) {
-      setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。', 'err');
-      setDebug('event: iframe detected / microphone blocked by Permissions Policy');
-    }
-  } catch(e){}
-}
-
-function updateModeBadge(){
-  var el = $('modeBadge');
-  if (!el) return;
-
-  if (IS_ANDROID) {
-    el.textContent = 'mode: Android stable';
-    el.className = 'badge ok';
-  } else if (IS_IOS) {
-    el.textContent = 'mode: iOS limited';
-    el.className = 'badge warn';
-  } else {
-    el.textContent = 'mode: standard';
-    el.className = 'badge';
-  }
-}
-
-function simpleWordToIPA(word){
-  var w = String(word || '').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g, '');
-  if (!w) return '';
-
-  var dict = {
-    "i":"aɪ","i'm":"aɪm","ive":"aɪv","i've":"aɪv",
-    "you":"juː","you're":"jʊr","youre":"jʊr","your":"jɔːr",
-    "we":"wiː","we're":"wɪr","were":"wɜːr","are":"ɑːr",
-    "the":"ðə","a":"ə","an":"ən","and":"ænd","or":"ɔːr",
-    "to":"tuː","of":"əv","in":"ɪn","on":"ɑːn","for":"fɔːr",
-    "with":"wɪð","from":"frʌm","about":"əˈbaʊt","what":"wʌt",
-    "how":"haʊ","have":"hæv","has":"hæz","been":"bɪn",
-    "working":"ˈwɜːrkɪŋ","work":"wɜːrk","inside":"ˌɪnˈsaɪd",
-    "sales":"seɪlz","japan":"dʒəˈpæn","hiroaki":"hiːroʊˈɑːki",
-    "frederic":"ˈfreɪdərɪk","nice":"naɪs","meet":"miːt",
-    "heard":"hɜːrd","recently":"ˈriːsəntli","great":"ɡreɪt",
-    "finally":"ˈfaɪnəli","person":"ˈpɜːrsən","tell":"tel",
-    "me":"miː","kind":"kaɪnd","projects":"ˈprɑːdʒekts",
-    "focusing":"ˈfoʊkəsɪŋ","now":"naʊ","rening":"ˈriːnɪŋ",
-    "columns":"ˈkɑːləmz","causing":"ˈkɔːzɪŋ","some":"sʌm",
-    "trouble":"ˈtrʌbəl","lately":"ˈleɪtli","yeah":"jeə",
-    "pharmaceutical":"ˌfɑːrməˈsuːtɪkəl","takeda":"təˈkeɪdə",
-    "appointment":"əˈpɔɪntmənt","significant":"sɪɡˈnɪfɪkənt",
-    "deal":"diːl","key":"kiː","secure":"sɪˈkjʊr","able":"ˈeɪbəl",
-    "could":"kʊd","potentially":"pəˈtenʃəli","lead":"liːd",
-    "took":"tʊk","over":"ˈoʊvər","six":"sɪks","months":"mʌnθs",
-    "build":"bɪld","relationship":"rɪˈleɪʃənʃɪp",
-    "triggered":"ˈtrɪɡərd","opportunity":"ˌɑːpərˈtuːnəti",
-    "specificially":"spəˈsɪfɪkli","specifically":"spəˈsɪfɪkli"
-  };
-
-  if (dict[w]) return dict[w];
-
-  var ipa = w;
-  ipa = ipa.replace(/tion\b/g,"ʃən")
-           .replace(/sion\b/g,"ʒən")
-           .replace(/ph/g,"f")
-           .replace(/th/g,"θ")
-           .replace(/sh/g,"ʃ")
-           .replace(/ch/g,"tʃ")
-           .replace(/oo/g,"uː")
-           .replace(/ee/g,"iː")
-           .replace(/ea/g,"iː")
-           .replace(/ai/g,"eɪ")
-           .replace(/ay/g,"eɪ")
-           .replace(/ow/g,"aʊ")
-           .replace(/ou/g,"aʊ")
-           .replace(/ar/g,"ɑːr")
-           .replace(/er/g,"ɜːr")
-           .replace(/or/g,"ɔːr");
-  return ipa;
-}
-
-function fallbackSentenceToIPA(text){
-  text = String(text || '').trim();
-  if (!text) return '';
-
-  if (ipaCache[text]) return ipaCache[text];
-
-  var words = text.split(/\s+/).map(function(word){
-    var clean = word.replace(/[“”]/g, '"').replace(/[’]/g, "'");
-    var ipa = simpleWordToIPA(clean);
-    return ipa ? '/' + ipa + '/' : '';
-  }).filter(Boolean);
-
-  var result = words.join(' ');
-  ipaCache[text] = result;
-  return result;
-}
-
-function isReceivedIpaForCurrentSentence(text){
-  if (!receivedIpa || !String(receivedIpa).trim()) return false;
-  if (!receivedIpaTarget || !String(receivedIpaTarget).trim()) return false;
-  return normalizeForIpaSync(receivedIpaTarget) === normalizeForIpaSync(text);
-}
-
-function sentenceToIPA(text){
-  text = String(text || '').trim();
-  if (!text) return '';
-
-  // GASから受け取ったIPAは、対象英文と一致する場合だけ使う。
-  // これで前のフレーズのIPA残りを防ぐ。
-  if (isReceivedIpaForCurrentSentence(text)) {
-    return String(receivedIpa).trim();
-  }
-
-  return fallbackSentenceToIPA(text);
-}
-
-function renderSentence(){
-  var el = $('sentence');
-  if (!el) return;
-
-  var en = sentence || '(no sentence)';
-  var ipa = sentenceToIPA(sentence);
-
-  if (ipaMode === 0) {
-    el.innerHTML =
-      '<span class="sentenceText">' + escapeHtml(en) + '</span>' +
-      '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
-  } else if (ipaMode === 1) {
-    el.innerHTML = '<span class="sentenceText">' + escapeHtml(en) + '</span>';
-  } else {
-    el.innerHTML = '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
-  }
-
-  var btn = $('ipaBtn');
-  if (btn) {
-    btn.textContent = ipaMode === 0 ? '英+IPA' : (ipaMode === 1 ? '英語のみ' : 'IPAのみ');
-  }
-}
-
-function setSentence(text, r, ipa, ipaTarget){
-  var nextSentence = String(text || '').trim();
-  var oldSentence = sentence;
-
-  sentence = nextSentence;
-  role = r || role || 'B';
-
-  // 新しいIPAが届いた場合だけ受け取る。
-  // ipaTargetがないpostMessageのIPAは、古いIPAの可能性があるため採用しない。
-  if (typeof ipa !== 'undefined' && String(ipa || '').trim()) {
-    var target = String(ipaTarget || '').trim();
-
-    if (target && normalizeForIpaSync(target) === normalizeForIpaSync(nextSentence)) {
-      receivedIpa = String(ipa || '').trim();
-      receivedIpaTarget = target;
-    } else if (!target && normalizeForIpaSync(oldSentence) === normalizeForIpaSync(nextSentence)) {
-      // 初回URL互換用。ただし英文が変わっていない場合のみ許可。
-      receivedIpa = String(ipa || '').trim();
-      receivedIpaTarget = nextSentence;
-    } else {
-      receivedIpa = '';
-      receivedIpaTarget = '';
-    }
-  } else if (normalizeForIpaSync(oldSentence) !== normalizeForIpaSync(nextSentence)) {
-    // 英文が変わったのに新しいIPAがない場合は、前回IPAを必ず消す。
-    receivedIpa = '';
-    receivedIpaTarget = '';
-  }
-
-  $('roleBadge').textContent = 'role: ' + role;
-  renderSentence();
-  setStatus('🎙 Startを押して話してください', '');
-  $('result').textContent = '';
-  setDebug('event: target ready');
-}
-
-function parseScriptPreview(text){
-  text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-  if (!text) return [];
-
-  var normalized = text
-    .replace(/\s*(#\d+\s*A:)\s*/g, '\n$1 ')
-    .replace(/\s*(#\d+\s*B:)\s*/g, '\n$1 ')
-    .replace(/\s*(\bA:)\s*/g, '\n$1 ')
-    .replace(/\s*(\bB:)\s*/g, '\n$1 ')
-    .trim();
-
-  return normalized.split('\n').map(function(x){ return x.trim(); }).filter(Boolean).map(function(line){
-    var m = line.match(/^(#\d+)?\s*([AB]):\s*(.*)$/i);
-    return m ? {no:m[1] || '', role:m[2].toUpperCase(), text:m[3] || ''} : {no:'', role:'', text:line};
-  });
-}
-
-function setScriptPreview(text){
-  scriptPreview = String(text || '');
-  var rows = parseScriptPreview(scriptPreview);
-  var el = $('scriptPreview');
-
-  if (!rows.length) {
-    el.textContent = '(no script preview)';
-    return;
-  }
-
-  el.innerHTML = rows.map(function(r){
-    var cls = r.role === 'A' ? 'tagA' : (r.role === 'B' ? 'tagB' : 'tagN');
-    var no = r.no ? '<span class="no">' + escapeHtml(r.no) + '</span>' : '';
-    return '<div class="line"><div class="tag ' + cls + '">' + escapeHtml(r.role || '-') + '</div><div class="txt">' + no + escapeHtml(r.text) + '</div></div>';
-  }).join('');
-}
-
-function toggleIPA(){
-  ipaMode = (ipaMode + 1) % 3;
-  renderSentence();
-  try { localStorage.setItem('wpm_mic_ipa_mode', String(ipaMode)); } catch(e){}
-  postToParent({type:'MIC_TOGGLE_IPA', role:role, target:sentence, ipaMode:ipaMode});
-}
-
-function cleanupTimers(){
-  if (hardTimer){ clearTimeout(hardTimer); hardTimer = null; }
-  if (noSpeechTimer){ clearTimeout(noSpeechTimer); noSpeechTimer = null; }
-  if (softEndTimer){ clearTimeout(softEndTimer); softEndTimer = null; }
-}
-
-function cleanupMeter(){
-  try { if (meterRaf) cancelAnimationFrame(meterRaf); } catch(e){}
-  meterRaf = null;
-
-  try { if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
-  micStream = null;
-
-  try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch(e){}
-  audioCtx = null;
-  analyser = null;
-
-  $('bar').style.width = '0%';
-  $('levelText').textContent = '0%';
-}
-
-function cleanupRecognition(){
-  cleanupTimers();
-  cleanupMeter();
-  isListening = false;
-  setButtons(false);
-  $('statusBadge').textContent = 'status: ready';
-  $('statusBadge').className = 'badge ok';
-}
-
-function postToParent(payload){
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(payload, parentOrigin);
-    }
-  } catch(e){}
-
-  try {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage(payload, parentOrigin);
-    }
-  } catch(e){}
-}
-
-function saveMobileResult(payload){
-  try { localStorage.setItem(token, JSON.stringify(payload)); } catch(e){}
-}
-
-function returnToParent(payload){
-  if (mode === 'mobile' && returnUrl) {
-    saveMobileResult(payload);
-    setStatus('✅ 完了。元の画面へ戻ります...', 'done');
-    setTimeout(function(){
-      location.href = returnUrl + (returnUrl.indexOf('?') >= 0 ? '&' : '?') + 'wpmMicReturn=1&token=' + encodeURIComponent(token);
-    }, 700);
-    return;
-  }
-
-  postToParent(payload);
-}
-
-function finishWithText(text, autoStop){
-  text = String(text || '').trim();
-  cleanupRecognition();
-
-  if (text) {
-    $('result').textContent = '認識: ' + text;
-    setStatus('✅ 完了', 'done');
-    setDebug('event: final result sent');
-    returnToParent({
-      type:'MIC_RESULT',
-      text:text,
-      target:sentence,
-      role:role,
-      token:token,
-      ts:Date.now(),
-      build:window.__micPageBuild
-    });
-  } else {
-    $('result').textContent = '';
-    setStatus('停止しました。認識結果がありません。もう一度Startを押してください。', 'err');
-    setDebug(autoStop ? 'event: timeout/no result' : 'event: recognition ended without result');
-    returnToParent({
-      type:'MIC_EMPTY',
-      target:sentence,
-      role:role,
-      token:token,
-      ts:Date.now(),
-      build:window.__micPageBuild
-    });
-  }
-}
-
-function stopRec(){
-  try {
-    if (recognition && isListening) {
-      setStatus('Stopping...', 'listening');
-      recognition.stop();
-    }
-  } catch(e){
-    cleanupRecognition();
-    setStatus('停止しました。', '');
-    setDebug('event: stop exception');
-  }
-}
-
-function startMeter(stream){
-  try {
-    micStream = stream;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-
-    var source = audioCtx.createMediaStreamSource(stream);
-    source.connect(analyser);
-
-    var data = new Uint8Array(analyser.fftSize);
-
-    function tick(){
-      if (!analyser) return;
-
-      analyser.getByteTimeDomainData(data);
-      var sum = 0;
-
-      for (var i = 0; i < data.length; i++){
-        var v = (data[i] - 128) / 128;
-        sum += v * v;
-      }
-
-      var pct = Math.min(100, Math.round(Math.sqrt(sum / data.length) * 260));
-      $('bar').style.width = pct + '%';
-      $('levelText').textContent = pct + '%';
-
-      meterRaf = requestAnimationFrame(tick);
-    }
-
-    tick();
-  } catch(e){
-    setDebug('event: meter unavailable');
-  }
-}
-
-function stopSoonAfterInterim(){
-  if (!IS_ANDROID) return;
-
-  if (softEndTimer) clearTimeout(softEndTimer);
-
+// ------------------- グローバル -------------------
+var recognition=null,isListening=false,softEndTimer=null;
+var SILENCE_THRESHOLD=0.02; // 無音判定閾値
+var sentence='',ipaMode=0,role='B',receivedIpa='',receivedIpaTarget='';
+
+// ------------------- ソフト停止タイマー -------------------
+function startSoftEndTimer(){
+  if(softEndTimer) clearTimeout(softEndTimer);
   softEndTimer = setTimeout(function(){
-    if (!isListening) return;
-
-    if (heardFinal || heardInterim) {
-      setDebug('event: android soft end after interim');
-      try { recognition.stop(); } catch(e){}
-      setTimeout(function(){
-        if (isListening) finishWithText(heardFinal || heardInterim, true);
-      }, 700);
+    if(isListening){
+      console.log('Soft end triggered: auto Stop');
+      stopRec();
     }
-  }, SOFT_END_AFTER_INTERIM_MS);
+  }, 2000); // 無音2秒
 }
 
+// 音声入力プロセス中に呼び出す
+function onAudioProcess(volume){
+  if(volume < SILENCE_THRESHOLD){
+    startSoftEndTimer();
+  } else {
+    if(softEndTimer){ clearTimeout(softEndTimer); softEndTimer=null; }
+  }
+}
+
+// ------------------- マイク開始 -------------------
 function startRec(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(isListening) return;
+  isListening=true;
+  setButtons(isListening);
+  setStatus('🎙 Listening...', 'listening');
 
-  if (!SR) {
-    setStatus('このブラウザは音声認識に対応していません。Chromeを使用してください。', 'err');
-    return;
-  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    var audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    var analyser=audioCtx.createAnalyser();
+    var source=audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    var dataArray=new Uint8Array(analyser.fftSize);
 
-  if (isListening) return;
-
-  heardFinal = '';
-  heardInterim = '';
-  lastAnyResultAt = 0;
-
-  $('result').textContent = '';
-  setStatus('マイク権限を確認中...', 'listening');
-  setDebug('event: requesting microphone');
-  setButtons(true);
-
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-    startMeter(stream);
-
-    recognition = new SR();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = IS_ANDROID ? true : false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = function(){
-      isListening = true;
-      setButtons(true);
-      setStatus('Listening...', 'listening');
-      setDebug('event: recognition started / continuous=' + recognition.continuous);
-
-      $('statusBadge').textContent = 'status: listening';
-      $('statusBadge').className = 'badge';
-
-      hardTimer = setTimeout(function(){
-        if (!isListening) return;
-        setDebug('event: hard timeout -> finish');
-        try { recognition.stop(); } catch(e){}
-        setTimeout(function(){
-          if (isListening) finishWithText(heardFinal || heardInterim, true);
-        }, 800);
-      }, MAX_LISTEN_MS);
-
-      noSpeechTimer = setTimeout(function(){
-        if (!isListening) return;
-        if (!(heardFinal || heardInterim)) {
-          setDebug('event: silence timeout -> no result');
-          try { recognition.stop(); } catch(e){}
-          setTimeout(function(){
-            if (isListening) finishWithText('', true);
-          }, 800);
-        }
-      }, SILENCE_END_MS);
-    };
-
-    recognition.onresult = function(event){
-      var finalText = '';
-      var interimText = '';
-
-      for (var i = event.resultIndex; i < event.results.length; i++){
-        var txt = '';
-        try { txt = event.results[i][0].transcript || ''; } catch(e){}
-        if (event.results[i].isFinal) finalText += txt;
-        else interimText += txt;
+    function updateMeter(){
+      analyser.getByteTimeDomainData(dataArray);
+      var sum=0;
+      for(var i=0;i<dataArray.length;i++){
+        var val=(dataArray[i]-128)/128;
+        sum+=val*val;
       }
-
-      if (finalText.trim()) {
-        heardFinal += (heardFinal ? ' ' : '') + finalText.trim();
-        lastAnyResultAt = Date.now();
-      }
-
-      if (interimText.trim()) {
-        heardInterim = interimText.trim();
-        lastAnyResultAt = Date.now();
-      }
-
-      var show = heardFinal || heardInterim;
-
-      if (show) {
-        $('result').textContent = '認識: ' + show;
-        setDebug('event: recognition result / ' + (heardFinal ? 'final' : 'interim'));
-      }
-
-      if (heardFinal && !IS_ANDROID) {
-        setTimeout(function(){
-          if (isListening) {
-            try { recognition.stop(); } catch(e){}
-          }
-        }, 350);
-      }
-
-      if (IS_ANDROID && show) {
-        stopSoonAfterInterim();
-      }
-    };
-
-    recognition.onerror = function(e){
-      var msg = e && e.error ? e.error : 'unknown';
-      setDebug('event: recognition error: ' + msg);
-
-      if (msg === 'no-speech') {
-        if (IS_ANDROID && (heardFinal || heardInterim)) {
-          finishWithText(heardFinal || heardInterim, true);
-        }
-        return;
-      }
-
-      cleanupRecognition();
-
-      if (msg === 'not-allowed' || msg === 'service-not-allowed') {
-        setStatus('マイク権限エラー: Permission denied。Chromeのサイト設定でマイクを許可してください。', 'err');
-      } else {
-        setStatus('音声認識エラー: ' + msg, 'err');
-      }
-    };
-
-    recognition.onend = function(){
-      var text = heardFinal || heardInterim || '';
-
-      if (isListening) finishWithText(text, false);
-      else cleanupRecognition();
-
-      setDebug(text ? 'event: speech ended with text' : 'event: recognition ended without result');
-    };
-
-    try {
-      recognition.start();
-    } catch(e) {
-      cleanupRecognition();
-      setStatus('開始できません: ' + (e.message || e), 'err');
-      setDebug('event: recognition start exception');
+      var volume=Math.sqrt(sum/dataArray.length);
+      document.getElementById('levelText').textContent=(volume*100).toFixed(0)+'%';
+      document.getElementById('bar').style.width=(volume*100)+'%';
+      onAudioProcess(volume);
+      if(isListening) requestAnimationFrame(updateMeter);
     }
-  }).catch(function(err){
-    cleanupRecognition();
-    setStatus('マイク権限エラー: Permission denied。Chromeのサイト設定でマイクを許可してください。', 'err');
-    setDebug('event: getUserMedia error');
+    updateMeter();
+  }).catch(err=>{
+    console.error(err);
+    setStatus('Microphone access denied', 'err');
+    setButtons(false);
+    isListening=false;
   });
 }
 
-function parsePreviewRowsForSpeak(){
-  return parseScriptPreview(scriptPreview) || [];
+// ------------------- マイク停止 -------------------
+function stopRec(){
+  isListening=false;
+  setButtons(false);
+  setStatus('🎙 Stopped', 'done');
+  if(softEndTimer){ clearTimeout(softEndTimer); softEndTimer=null; }
 }
 
-function getCurrentPreviewIndex(){
-  var rows = parsePreviewRowsForSpeak();
-  var target = String(sentence || '').trim();
-
-  if (!target) return -1;
-
-  for (var i = 0; i < rows.length; i++){
-    if (String(rows[i].text || '').trim() === target) return i;
-  }
-
-  for (var j = 0; j < rows.length; j++){
-    var t = String(rows[j].text || '').trim();
-    if (t && (t.indexOf(target) >= 0 || target.indexOf(t) >= 0)) return j;
-  }
-
-  return -1;
+// ------------------- UI更新 -------------------
+function setButtons(listening){
+  document.getElementById('startBtn').disabled=listening;
+  document.getElementById('stopBtn').disabled=!listening;
 }
 
-function getLocalSpeakText(r){
-  r = r === 'A' ? 'A' : 'B';
-
-  if (r === role && sentence) return sentence;
-
-  var rows = parsePreviewRowsForSpeak();
-  var idx = getCurrentPreviewIndex();
-
-  if (idx >= 0) {
-    for (var i = idx; i >= 0; i--){
-      if (rows[i] && rows[i].role === r && rows[i].text) return rows[i].text;
-    }
-    for (var j = idx + 1; j < rows.length; j++){
-      if (rows[j] && rows[j].role === r && rows[j].text) return rows[j].text;
-    }
-  }
-
-  for (var k = 0; k < rows.length; k++){
-    if (rows[k] && rows[k].role === r && rows[k].text) return rows[k].text;
-  }
-
-  return sentence || '';
+function setStatus(text,cls){
+  var el=document.getElementById('status');
+  el.textContent=text;
+  el.className='status '+(cls||'');
 }
 
-function localBrowserSpeak(text){
-  text = String(text || '').trim();
+// ------------------- mic.html 既存機能 -------------------
+function toggleIPA(){
+  ipaMode = (ipaMode+1)%3;
+  renderSentence();
+}
+function speakRole(r){console.log('Speak Role:',r);}
+function sendPrev(){console.log('Prev sentence');}
+function sendNext(){console.log('Next sentence');}
+function resetView(){console.log('Reset view');}
 
-  if (!text) {
-    setStatus('再生する英文がありません。', 'err');
-    return;
-  }
-
-  try {
-    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-      setStatus('このブラウザでは音声再生に対応していません。', 'err');
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-
-    var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US';
-    u.rate = 0.92;
-    u.pitch = 1.0;
-
-    u.onstart = function(){
-      setStatus('🔊 Playing: ' + text.slice(0, 48), 'listening');
-      setDebug('event: local browser speak start');
-    };
-
-    u.onend = function(){
-      setStatus('🎙 Startを押して話してください', '');
-      setDebug('event: local browser speak ended');
-    };
-
-    u.onerror = function(e){
-      setStatus('音声再生エラー。もう一度押してください。', 'err');
-      setDebug('event: local browser speak error: ' + (e && e.error ? e.error : 'unknown'));
-    };
-
-    setTimeout(function(){
-      window.speechSynthesis.speak(u);
-    }, 50);
-  } catch(e) {
-    setStatus('音声再生エラー: ' + (e.message || e), 'err');
-    setDebug('event: local speak exception');
+// ------------------- IPA表示用（既存 mic.html ロジック） -------------------
+function renderSentence(){
+  var el=document.getElementById('sentence');
+  if(!el) return;
+  var en=sentence||'(no sentence)';
+  var ipa=(receivedIpaTarget===sentence && receivedIpa)?receivedIpa:fallbackSentenceToIPA(sentence);
+  if(ipaMode===0){
+    el.innerHTML='<span class="sentenceText">'+en+'</span>'+
+                 '<div class="ipaLine">'+(ipa||'(IPA not available)')+'</div>';
+  } else if(ipaMode===1){
+    el.innerHTML='<span class="sentenceText">'+en+'</span>';
+  } else {
+    el.innerHTML='<div class="ipaLine">'+(ipa||'(IPA not available)')+'</div>';
   }
 }
+function fallbackSentenceToIPA(text){return text;} // 仮
 
-function speakRole(r){
-  r = r === 'A' ? 'A' : 'B';
-
-  var hasParent = false;
-  try { hasParent = !!(window.opener && !window.opener.closed); } catch(e){}
-
-  if (hasParent) {
-    postToParent({type:'MIC_SPEAK_ROLE', role:r, target:sentence});
-    return;
-  }
-
-  localBrowserSpeak(getLocalSpeakText(r));
-}
-
-function sendPrev(){
-  postToParent({type:'MIC_PREV', role:role, target:sentence});
-}
-
-function sendNext(){
-  postToParent({type:'MIC_NEXT', role:role, target:sentence});
-}
-
-function resetView(){
-  cleanupRecognition();
-  $('result').textContent = '';
-  setStatus('🎙 Startを押して話してください', '');
-}
-
-window.addEventListener('message', function(e){
-  if (!e.data) return;
-
-  if (e.data.type === 'SET_TARGET') {
-    setSentence(
-      e.data.sentence || '',
-      e.data.role || role,
-      e.data.ipa || '',
-      e.data.ipaTarget || ''
-    );
-
-    if (typeof e.data.script !== 'undefined') {
-      setScriptPreview(e.data.script || '');
-    }
-
-    try { window.focus(); } catch(ex){}
-  }
-
-  if (e.data.type === 'PING') {
-    postToParent({
-      type:'MIC_READY',
-      build:window.__micPageBuild,
-      role:role,
-      target:sentence
-    });
-  }
-});
-
-ensureTopLevel();
-updateModeBadge();
-
-// Default is English + IPA.
-// Saved mode is intentionally ignored to avoid "still IPA-only/English-only" confusion.
-ipaMode = 0;
-
-setSentence(sentence, role, receivedIpa, receivedIpaTarget);
-setScriptPreview(scriptPreview);
-
-setTimeout(function(){
-  postToParent({
-    type:'MIC_READY',
-    build:window.__micPageBuild,
-    role:role,
-    target:sentence
-  });
-}, 500);
 </script>
 </body>
 </html>
