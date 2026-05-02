@@ -243,7 +243,7 @@
 
 <script>
 (function(){
-  window.__micPageBuild = 'mic_html_0502R_ipa_toggle_sentence_sync_final';
+  window.__micPageBuild = 'mic_html_0502S_auto_stop_2s_full_keep';
 })();
 
 var params = new URLSearchParams(location.search);
@@ -285,7 +285,16 @@ var IS_IOS = /iPhone|iPad|iPod/i.test(ua);
 
 var MAX_LISTEN_MS = IS_ANDROID ? 16000 : 12000;
 var SILENCE_END_MS = IS_ANDROID ? 9000 : 6500;
-var SOFT_END_AFTER_INTERIM_MS = IS_ANDROID ? 1800 : 900;
+
+// 入力後の自動停止：認識結果が出たあと、無音が約2秒続いたらStopへ切替
+// ※Start直後の無音では止めない。heardFinal / heardInterim が出てから有効。
+var AUTO_STOP_AFTER_SILENCE_MS = 2000;
+var AUTO_STOP_LEVEL_PCT = 4;
+var AUTO_STOP_MIN_AFTER_RESULT_MS = 500;
+
+// AndroidのWeb Speech APIはonendが遅い/不安定なため、結果更新後の保険タイマーも2秒寄せ
+var SOFT_END_AFTER_INTERIM_MS = IS_ANDROID ? 2200 : 2200;
+var silenceAutoStopTimer = null;
 
 function $(id){ return document.getElementById(id); }
 
@@ -427,8 +436,6 @@ function sentenceToIPA(text){
   text = String(text || '').trim();
   if (!text) return '';
 
-  // GASから受け取ったIPAは、対象英文と一致する場合だけ使う。
-  // これで前のフレーズのIPA残りを防ぐ。
   if (isReceivedIpaForCurrentSentence(text)) {
     return String(receivedIpa).trim();
   }
@@ -466,8 +473,6 @@ function setSentence(text, r, ipa, ipaTarget){
   sentence = nextSentence;
   role = r || role || 'B';
 
-  // 新しいIPAが届いた場合だけ受け取る。
-  // ipaTargetがないpostMessageのIPAは、古いIPAの可能性があるため採用しない。
   if (typeof ipa !== 'undefined' && String(ipa || '').trim()) {
     var target = String(ipaTarget || '').trim();
 
@@ -475,7 +480,6 @@ function setSentence(text, r, ipa, ipaTarget){
       receivedIpa = String(ipa || '').trim();
       receivedIpaTarget = target;
     } else if (!target && normalizeForIpaSync(oldSentence) === normalizeForIpaSync(nextSentence)) {
-      // 初回URL互換用。ただし英文が変わっていない場合のみ許可。
       receivedIpa = String(ipa || '').trim();
       receivedIpaTarget = nextSentence;
     } else {
@@ -483,7 +487,6 @@ function setSentence(text, r, ipa, ipaTarget){
       receivedIpaTarget = '';
     }
   } else if (normalizeForIpaSync(oldSentence) !== normalizeForIpaSync(nextSentence)) {
-    // 英文が変わったのに新しいIPAがない場合は、前回IPAを必ず消す。
     receivedIpa = '';
     receivedIpaTarget = '';
   }
@@ -540,6 +543,52 @@ function cleanupTimers(){
   if (hardTimer){ clearTimeout(hardTimer); hardTimer = null; }
   if (noSpeechTimer){ clearTimeout(noSpeechTimer); noSpeechTimer = null; }
   if (softEndTimer){ clearTimeout(softEndTimer); softEndTimer = null; }
+  if (silenceAutoStopTimer){ clearTimeout(silenceAutoStopTimer); silenceAutoStopTimer = null; }
+}
+
+function clearSilenceAutoStopTimer(){
+  if (silenceAutoStopTimer){
+    clearTimeout(silenceAutoStopTimer);
+    silenceAutoStopTimer = null;
+  }
+}
+
+function hasHeardText(){
+  return !!(String(heardFinal || '').trim() || String(heardInterim || '').trim());
+}
+
+function handleAutoStopBySilence(pct){
+  if (!isListening || !recognition || !hasHeardText()) {
+    clearSilenceAutoStopTimer();
+    return;
+  }
+
+  if (pct > AUTO_STOP_LEVEL_PCT) {
+    clearSilenceAutoStopTimer();
+    return;
+  }
+
+  if (lastAnyResultAt && Date.now() - lastAnyResultAt < AUTO_STOP_MIN_AFTER_RESULT_MS) {
+    return;
+  }
+
+  if (silenceAutoStopTimer) return;
+
+  setDebug('event: silence detected -> auto stop in 2s');
+
+  silenceAutoStopTimer = setTimeout(function(){
+    silenceAutoStopTimer = null;
+    if (!isListening || !recognition || !hasHeardText()) return;
+
+    setDebug('event: silence 2s -> auto stop');
+    setStatus('無音が2秒続いたため、自動停止します...', 'listening');
+
+    try {
+      recognition.stop();
+    } catch(e) {
+      finishWithText(heardFinal || heardInterim, true);
+    }
+  }, AUTO_STOP_AFTER_SILENCE_MS);
 }
 
 function cleanupMeter(){
@@ -669,6 +718,8 @@ function startMeter(stream){
       $('bar').style.width = pct + '%';
       $('levelText').textContent = pct + '%';
 
+      handleAutoStopBySilence(pct);
+
       meterRaf = requestAnimationFrame(tick);
     }
 
@@ -721,7 +772,7 @@ function startRec(){
     recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = IS_ANDROID ? true : false;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = function(){
@@ -780,14 +831,7 @@ function startRec(){
       if (show) {
         $('result').textContent = '認識: ' + show;
         setDebug('event: recognition result / ' + (heardFinal ? 'final' : 'interim'));
-      }
-
-      if (heardFinal && !IS_ANDROID) {
-        setTimeout(function(){
-          if (isListening) {
-            try { recognition.stop(); } catch(e){}
-          }
-        }, 350);
+        clearSilenceAutoStopTimer();
       }
 
       if (IS_ANDROID && show) {
@@ -988,8 +1032,6 @@ window.addEventListener('message', function(e){
 ensureTopLevel();
 updateModeBadge();
 
-// Default is English + IPA.
-// Saved mode is intentionally ignored to avoid "still IPA-only/English-only" confusion.
 ipaMode = 0;
 
 setSentence(sentence, role, receivedIpa, receivedIpaTarget);
