@@ -8,6 +8,9 @@
     body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1e293b;color:#e5e7eb;padding:24px 18px;}
     .label{color:#93c5fd;font-size:14px;margin-bottom:8px;font-weight:800;letter-spacing:.04em;}
     .sentence{background:#334155;color:#fff;border-radius:10px;padding:15px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;}
+    .ipaLine{margin-top:10px;color:#bfdbfe;font-size:15px;line-height:1.45;font-weight:700;opacity:.95;}
+    .sentenceText{display:block;}
+
     .badges{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px;}
     .badge{border:1px solid rgba(255,255,255,.20);background:#334155;color:#dbeafe;border-radius:999px;padding:7px 11px;font-size:13px;font-weight:800;}
     .badge.ok{background:#dcfce7;color:#166534;border-color:#86efac;}
@@ -60,7 +63,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild='mic_html_0502H_android_stable_recognition'; })();
+(function(){ window.__micPageBuild='mic_html_0502I_ipa_toggle_default_en_ipa'; })();
 
 var params=new URLSearchParams(location.search);
 var sentence=params.get('sentence')||'';
@@ -70,6 +73,11 @@ var scriptPreview=params.get('script')||'';
 var returnUrl=params.get('return')||'';
 var mode=params.get('mode')||'popup';
 var token=params.get('token')||'wpm_mic_result_latest';
+
+// IPA display mode:
+// 0 = English + IPA, 1 = English only, 2 = IPA only
+var ipaMode = 0;
+var ipaCache = {};
 
 var ua=navigator.userAgent||'';
 var IS_ANDROID=/Android/i.test(ua);
@@ -90,6 +98,100 @@ function setStatus(text,cls){var el=$('status');el.textContent=text||'';el.class
 function setDebug(text){$('debug').textContent=text||'';}
 function setButtons(listening){$('startBtn').disabled=!!listening;$('stopBtn').disabled=!listening;}
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+
+function simpleWordToIPA(word){
+  var w = String(word || '').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g, '');
+  if (!w) return '';
+
+  var dict = {
+    "i": "aɪ", "i'm": "aɪm", "ive": "aɪv", "i've": "aɪv",
+    "you": "juː", "you're": "jʊr", "youre": "jʊr", "your": "jɔːr",
+    "we": "wiː", "we're": "wɪr", "were": "wɜːr", "are": "ɑːr",
+    "the": "ðə", "a": "ə", "an": "ən", "and": "ænd", "or": "ɔːr",
+    "to": "tuː", "of": "əv", "in": "ɪn", "on": "ɑːn", "for": "fɔːr",
+    "with": "wɪð", "from": "frʌm", "about": "əˈbaʊt", "what": "wʌt",
+    "how": "haʊ", "have": "hæv", "has": "hæz", "been": "bɪn",
+    "working": "ˈwɜːrkɪŋ", "work": "wɜːrk", "inside": "ˌɪnˈsaɪd",
+    "sales": "seɪlz", "japan": "dʒəˈpæn", "hiroaki": "hiːroʊˈɑːki",
+    "frederic": "ˈfreɪdərɪk", "nice": "naɪs", "meet": "miːt",
+    "heard": "hɜːrd", "recently": "ˈriːsəntli", "great": "ɡreɪt",
+    "finally": "ˈfaɪnəli", "person": "ˈpɜːrsən", "tell": "tel",
+    "me": "miː", "kind": "kaɪnd", "projects": "ˈprɑːdʒekts",
+    "focusing": "ˈfoʊkəsɪŋ", "now": "naʊ", "rening": "ˈriːnɪŋ",
+    "columns": "ˈkɑːləmz", "causing": "ˈkɔːzɪŋ", "some": "sʌm",
+    "trouble": "ˈtrʌbəl", "lately": "ˈleɪtli", "yeah": "jeə",
+    "pharmaceutical": "ˌfɑːrməˈsuːtɪkəl", "takeda": "təˈkeɪdə",
+    "appointment": "əˈpɔɪntmənt", "significant": "sɪɡˈnɪfɪkənt",
+    "deal": "diːl", "key": "kiː", "person": "ˈpɜːrsən",
+    "secure": "sɪˈkjʊr", "able": "ˈeɪbəl", "could": "kʊd",
+    "potentially": "pəˈtenʃəli", "lead": "liːd"
+  };
+
+  if (dict[w]) return dict[w];
+
+  // Very rough fallback so the line is never blank.
+  var ipa = w;
+  ipa = ipa.replace(/tion\b/g, "ʃən")
+           .replace(/sion\b/g, "ʒən")
+           .replace(/ph/g, "f")
+           .replace(/th/g, "θ")
+           .replace(/sh/g, "ʃ")
+           .replace(/ch/g, "tʃ")
+           .replace(/oo/g, "uː")
+           .replace(/ee/g, "iː")
+           .replace(/ea/g, "iː")
+           .replace(/ai/g, "eɪ")
+           .replace(/ay/g, "eɪ")
+           .replace(/ow/g, "aʊ")
+           .replace(/ou/g, "aʊ")
+           .replace(/ar/g, "ɑːr")
+           .replace(/er/g, "ɜːr")
+           .replace(/or/g, "ɔːr");
+  return ipa;
+}
+
+function sentenceToIPA(text){
+  text = String(text || '').trim();
+  if (!text) return '';
+
+  if (ipaCache[text]) return ipaCache[text];
+
+  var words = text.split(/\s+/).map(function(word){
+    var clean = word.replace(/[“”]/g, '"').replace(/[’]/g, "'");
+    var ipa = simpleWordToIPA(clean);
+    return ipa ? "/" + ipa + "/" : "";
+  }).filter(Boolean);
+
+  var result = words.join(" ");
+  ipaCache[text] = result;
+  return result;
+}
+
+function renderSentence(){
+  var el = $('sentence');
+  if (!el) return;
+
+  var en = sentence || '(no sentence)';
+  var ipa = sentenceToIPA(sentence);
+
+  if (ipaMode === 0) {
+    el.innerHTML =
+      '<span class="sentenceText">' + escapeHtml(en) + '</span>' +
+      '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
+  } else if (ipaMode === 1) {
+    el.innerHTML = '<span class="sentenceText">' + escapeHtml(en) + '</span>';
+  } else {
+    el.innerHTML = '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
+  }
+
+  var btns = Array.from(document.querySelectorAll('button')).filter(function(b){
+    return String(b.textContent || '').indexOf('IPA') >= 0;
+  });
+  var label = ipaMode === 0 ? '英+IPA' : (ipaMode === 1 ? '英語のみ' : 'IPAのみ');
+  btns.forEach(function(b){ b.textContent = label; });
+}
+
 
 function updateModeBadge(){
   var el=$('modeBadge');
@@ -120,7 +222,7 @@ function setScriptPreview(text){
 }
 function setSentence(text,r){
   sentence=String(text||'').trim();role=r||role||'B';
-  $('sentence').textContent=sentence||'(no sentence)';
+  renderSentence();
   $('roleBadge').textContent='role: '+role;
   setStatus('🎙 Startを押して話してください','');
   $('result').textContent='';
@@ -327,7 +429,12 @@ function startRec(){
 }
 
 function resetView(){cleanupRecognition();$('result').textContent='';setStatus('🎙 Startを押して話してください','');}
-function toggleIPA(){postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence});}
+function toggleIPA(){
+  ipaMode = (ipaMode + 1) % 3;
+  renderSentence();
+  try { localStorage.setItem('wpm_mic_ipa_mode', String(ipaMode)); } catch(e){}
+  postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
+}
 function speakRole(r){postToParent({type:'MIC_SPEAK_ROLE',role:r||role,target:sentence});}
 function sendNext(){postToParent({type:'MIC_NEXT',role:role,target:sentence});}
 
@@ -342,6 +449,17 @@ window.addEventListener('message',function(e){
 });
 
 updateModeBadge();
+try {
+  var savedIpaMode = localStorage.getItem('wpm_mic_ipa_mode');
+  // Default is English + IPA. Only apply saved mode if explicitly 0/1/2.
+  if (savedIpaMode === '0' || savedIpaMode === '1' || savedIpaMode === '2') {
+    ipaMode = parseInt(savedIpaMode, 10);
+  } else {
+    ipaMode = 0;
+  }
+} catch(e) {
+  ipaMode = 0;
+}
 setSentence(sentence,role);
 setScriptPreview(scriptPreview);
 setTimeout(function(){postToParent({type:'MIC_READY',build:window.__micPageBuild,role:role,target:sentence});},500);
