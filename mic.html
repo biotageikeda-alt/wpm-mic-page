@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - Windows Popup</title>
+  <title>Mic Recognition - IPA Sync</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1e293b;color:#e5e7eb;padding:24px 18px;}
@@ -63,7 +63,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild='mic_html_0502O_windows_popup_final'; })();
+(function(){ window.__micPageBuild='mic_html_0502P_ipa_sentence_sync'; })();
 
 var params=new URLSearchParams(location.search);
 var sentence=params.get('sentence')||'';
@@ -80,6 +80,7 @@ var token=params.get('token')||'wpm_mic_result_latest';
 var ipaMode = 0;
 var ipaCache = {};
 var receivedIpa = params.get('ipa') || ''; // GAS側から受け取ったIPAを優先
+var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
 
 var ua=navigator.userAgent||'';
 var IS_ANDROID=/Android/i.test(ua);
@@ -163,12 +164,29 @@ function simpleWordToIPA(word){
   return ipa;
 }
 
+
+function normalizeForIpaSync0502P(text){
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^a-z0-9']+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isReceivedIpaForCurrentSentence0502P(text){
+  if (!receivedIpa || !String(receivedIpa).trim()) return false;
+  if (!receivedIpaTarget || !String(receivedIpaTarget).trim()) return false;
+  return normalizeForIpaSync0502P(receivedIpaTarget) === normalizeForIpaSync0502P(text);
+}
+
 function sentenceToIPA(text){
   text = String(text || '').trim();
   if (!text) return '';
 
   // 1) GAS側から受け取ったIPAを最優先
-  if (receivedIpa && String(receivedIpa).trim()) {
+  if (isReceivedIpaForCurrentSentence0502P(text)) {
     return String(receivedIpa).trim();
   }
 
@@ -239,9 +257,22 @@ function setScriptPreview(text){
     return '<div class="line"><div class="tag '+cls+'">'+escapeHtml(r.role||'-')+'</div><div class="txt">'+no+escapeHtml(r.text)+'</div></div>';
   }).join('');
 }
-function setSentence(text,r,ipa){
-  sentence=String(text||'').trim();role=r||role||'B';
-  if (typeof ipa !== 'undefined') receivedIpa = String(ipa || '').trim();
+function setSentence(text,r,ipa,ipaTarget){
+  var nextSentence = String(text||'').trim();
+  var oldSentence = sentence;
+
+  sentence = nextSentence;
+  role = r || role || 'B';
+
+  // IPA must be tied to the exact sentence.
+  // If sentence changes and no new IPA arrives, clear old IPA immediately.
+  if (typeof ipa !== 'undefined' && String(ipa || '').trim()) {
+    receivedIpa = String(ipa || '').trim();
+    receivedIpaTarget = String(ipaTarget || nextSentence || '').trim();
+  } else if (normalizeForIpaSync0502P(oldSentence) !== normalizeForIpaSync0502P(nextSentence)) {
+    receivedIpa = '';
+    receivedIpaTarget = '';
+  }
   renderSentence();
   $('roleBadge').textContent='role: '+role;
   setStatus('🎙 Startを押して話してください','');
@@ -601,7 +632,7 @@ try {
 } catch(e) {
   ipaMode = 0;
 }
-setSentence(sentence,role,receivedIpa);
+setSentence(sentence,role,receivedIpa,receivedIpaTarget);
 setScriptPreview(scriptPreview);
 setTimeout(function(){postToParent({type:'MIC_READY',build:window.__micPageBuild,role:role,target:sentence});},500);
 </script>
