@@ -63,7 +63,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild='mic_html_0502I_ipa_toggle_default_en_ipa'; })();
+(function(){ window.__micPageBuild='mic_html_0502J_ipa_priority_from_gas'; })();
 
 var params=new URLSearchParams(location.search);
 var sentence=params.get('sentence')||'';
@@ -75,9 +75,11 @@ var mode=params.get('mode')||'popup';
 var token=params.get('token')||'wpm_mic_result_latest';
 
 // IPA display mode:
+// GAS側から e.data.ipa / URL ipa= で受け取ったIPAを優先表示します。
 // 0 = English + IPA, 1 = English only, 2 = IPA only
 var ipaMode = 0;
 var ipaCache = {};
+var receivedIpa = params.get('ipa') || ''; // GAS側から受け取ったIPAを優先
 
 var ua=navigator.userAgent||'';
 var IS_ANDROID=/Android/i.test(ua);
@@ -155,8 +157,15 @@ function sentenceToIPA(text){
   text = String(text || '').trim();
   if (!text) return '';
 
+  // 1) GAS側から受け取ったIPAを最優先
+  if (receivedIpa && String(receivedIpa).trim()) {
+    return String(receivedIpa).trim();
+  }
+
+  // 2) mic.html内キャッシュ
   if (ipaCache[text]) return ipaCache[text];
 
+  // 3) fallback: mic.html内の簡易辞書 + 簡易変換
   var words = text.split(/\s+/).map(function(word){
     var clean = word.replace(/[“”]/g, '"').replace(/[’]/g, "'");
     var ipa = simpleWordToIPA(clean);
@@ -220,8 +229,9 @@ function setScriptPreview(text){
     return '<div class="line"><div class="tag '+cls+'">'+escapeHtml(r.role||'-')+'</div><div class="txt">'+no+escapeHtml(r.text)+'</div></div>';
   }).join('');
 }
-function setSentence(text,r){
+function setSentence(text,r,ipa){
   sentence=String(text||'').trim();role=r||role||'B';
+  if (typeof ipa !== 'undefined') receivedIpa = String(ipa || '').trim();
   renderSentence();
   $('roleBadge').textContent='role: '+role;
   setStatus('🎙 Startを押して話してください','');
@@ -460,7 +470,7 @@ try {
 } catch(e) {
   ipaMode = 0;
 }
-setSentence(sentence,role);
+setSentence(sentence,role,receivedIpa);
 setScriptPreview(scriptPreview);
 setTimeout(function(){postToParent({type:'MIC_READY',build:window.__micPageBuild,role:role,target:sentence});},500);
 </script>
