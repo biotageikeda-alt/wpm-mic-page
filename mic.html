@@ -166,6 +166,17 @@
       border-bottom:1px solid rgba(255,255,255,.08);
       padding:7px 0;
     }
+
+    .line.current{
+      background:rgba(99,102,241,.20);
+      border-left:3px solid #818cf8;
+      border-radius:6px;
+      padding-left:7px;
+    }
+    .line.current .txt{
+      color:#c7d2fe;
+      font-weight:900;
+    }
     .line:last-child{border-bottom:none;}
     .tag{
       border-radius:999px;
@@ -495,6 +506,10 @@ function setSentence(text, r, ipa, ipaTarget){
   renderSentence();
   setStatus('🎙 Startを押して話してください', '');
   $('result').textContent = '';
+
+  // センテンス切替時にScript previewの現在行ハイライトを更新
+  setScriptPreview(scriptPreview);
+
   setDebug('event: target ready');
 }
 
@@ -528,8 +543,17 @@ function setScriptPreview(text){
   el.innerHTML = rows.map(function(r){
     var cls = r.role === 'A' ? 'tagA' : (r.role === 'B' ? 'tagB' : 'tagN');
     var no = r.no ? '<span class="no">' + escapeHtml(r.no) + '</span>' : '';
-    return '<div class="line"><div class="tag ' + cls + '">' + escapeHtml(r.role || '-') + '</div><div class="txt">' + no + escapeHtml(r.text) + '</div></div>';
+    var isCurrent = String(r.text || '').trim() === String(sentence || '').trim();
+    var html = '<div class="line' + (isCurrent ? ' current' : '') + '">'
+      + '<div class="tag ' + cls + '">' + escapeHtml(r.role || '-') + '</div>'
+      + '<div class="txt">' + no + escapeHtml(r.text) + '</div>'
+      + '</div>';
+    return html;
   }).join('');
+
+  // 現在行をスクロール表示
+  var cur = el.querySelector('.line.current');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
 }
 
 function toggleIPA(){
