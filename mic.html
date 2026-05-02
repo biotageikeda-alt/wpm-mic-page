@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - IPA Fixed</title>
+  <title>Mic Recognition - Breathing Stable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{
@@ -243,7 +243,7 @@
 
 <script>
 (function(){
-  window.__micPageBuild = 'mic_html_0502R_ipa_toggle_sentence_sync_final';
+  window.__micPageBuild = 'mic_html_0502U_breathing_stable_recognition';
 })();
 
 var params = new URLSearchParams(location.search);
@@ -268,6 +268,10 @@ var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
 var ipaCache = {};
 var recognition = null;
 var isListening = false;
+var manualStop = false;
+var autoRestarting = false;
+var restartCount = 0;
+var MAX_RESTARTS = 12;
 var heardFinal = '';
 var heardInterim = '';
 var lastAnyResultAt = 0;
@@ -283,9 +287,9 @@ var ua = navigator.userAgent || '';
 var IS_ANDROID = /Android/i.test(ua);
 var IS_IOS = /iPhone|iPad|iPod/i.test(ua);
 
-var MAX_LISTEN_MS = IS_ANDROID ? 16000 : 12000;
-var SILENCE_END_MS = IS_ANDROID ? 9000 : 6500;
-var SOFT_END_AFTER_INTERIM_MS = IS_ANDROID ? 1800 : 900;
+var MAX_LISTEN_MS = 20000;
+var SILENCE_END_MS = 12000;
+var SOFT_END_AFTER_INTERIM_MS = 2200;
 
 function $(id){ return document.getElementById(id); }
 
@@ -490,7 +494,7 @@ function setSentence(text, r, ipa, ipaTarget){
 
   $('roleBadge').textContent = 'role: ' + role;
   renderSentence();
-  setStatus('🎙 Startを押して話してください', '');
+  setStatus('🎙 Startを押して話してください（息継ぎしても継続します）', '');
   $('result').textContent = '';
   setDebug('event: target ready');
 }
@@ -561,6 +565,7 @@ function cleanupRecognition(){
   cleanupTimers();
   cleanupMeter();
   isListening = false;
+  autoRestarting = false;
   setButtons(false);
   $('statusBadge').textContent = 'status: ready';
   $('statusBadge').className = 'badge ok';
@@ -630,10 +635,18 @@ function finishWithText(text, autoStop){
 }
 
 function stopRec(){
+  manualStop = true;
+  autoRestarting = false;
+
   try {
     if (recognition && isListening) {
       setStatus('Stopping...', 'listening');
       recognition.stop();
+      setTimeout(function(){
+        if (isListening) {
+          finishWithText(heardFinal || heardInterim || '', false);
+        }
+      }, 500);
     }
   } catch(e){
     cleanupRecognition();
@@ -706,6 +719,10 @@ function startRec(){
 
   if (isListening) return;
 
+  manualStop = false;
+  autoRestarting = false;
+  restartCount = 0;
+
   heardFinal = '';
   heardInterim = '';
   lastAnyResultAt = 0;
@@ -721,14 +738,14 @@ function startRec(){
     recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = IS_ANDROID ? true : false;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = function(){
       isListening = true;
       setButtons(true);
       setStatus('Listening...', 'listening');
-      setDebug('event: recognition started / continuous=' + recognition.continuous);
+      setDebug('event: recognition started / continuous=' + recognition.continuous + ' / restart=' + restartCount);
 
       $('statusBadge').textContent = 'status: listening';
       $('statusBadge').className = 'badge';
@@ -736,6 +753,8 @@ function startRec(){
       hardTimer = setTimeout(function(){
         if (!isListening) return;
         setDebug('event: hard timeout -> finish');
+        manualStop = true;
+        autoRestarting = false;
         try { recognition.stop(); } catch(e){}
         setTimeout(function(){
           if (isListening) finishWithText(heardFinal || heardInterim, true);
@@ -745,7 +764,9 @@ function startRec(){
       noSpeechTimer = setTimeout(function(){
         if (!isListening) return;
         if (!(heardFinal || heardInterim)) {
-          setDebug('event: silence timeout -> no result');
+          setDebug('event: no initial speech timeout -> no result');
+          manualStop = true;
+          autoRestarting = false;
           try { recognition.stop(); } catch(e){}
           setTimeout(function(){
             if (isListening) finishWithText('', true);
@@ -790,9 +811,8 @@ function startRec(){
         }, 350);
       }
 
-      if (IS_ANDROID && show) {
-        stopSoonAfterInterim();
-      }
+      // In breathing-stable mode, do not stop immediately after interim.
+      // Let the user pause and continue speaking.
     };
 
     recognition.onerror = function(e){
@@ -800,8 +820,13 @@ function startRec(){
       setDebug('event: recognition error: ' + msg);
 
       if (msg === 'no-speech') {
-        if (IS_ANDROID && (heardFinal || heardInterim)) {
-          finishWithText(heardFinal || heardInterim, true);
+        if (isListening && !manualStop && (heardFinal || heardInterim)) {
+          setDebug('event: no-speech after partial result -> wait for onend restart');
+          return;
+        }
+        if (isListening && !manualStop && restartCount < MAX_RESTARTS) {
+          setDebug('event: no-speech -> auto restart pending');
+          return;
         }
         return;
       }
@@ -817,6 +842,28 @@ function startRec(){
 
     recognition.onend = function(){
       var text = heardFinal || heardInterim || '';
+
+      // Breath-pause protection:
+      // Chrome may fire onend after a short pause. If user did not press Stop
+      // and hard timeout has not finished, restart recognition automatically.
+      if (isListening && !manualStop && restartCount < MAX_RESTARTS) {
+        restartCount++;
+        autoRestarting = true;
+        setStatus('Listening...（息継ぎ検知 → 継続中）', 'listening');
+        setDebug('event: auto restart after breath pause / count=' + restartCount);
+
+        setTimeout(function(){
+          if (!isListening || manualStop) return;
+          try {
+            recognition.start();
+          } catch(err) {
+            setDebug('event: auto restart failed -> finish: ' + (err && err.message ? err.message : err));
+            finishWithText(heardFinal || heardInterim || '', false);
+          }
+        }, 180);
+
+        return;
+      }
 
       if (isListening) finishWithText(text, false);
       else cleanupRecognition();
@@ -911,7 +958,7 @@ function localBrowserSpeak(text){
     };
 
     u.onend = function(){
-      setStatus('🎙 Startを押して話してください', '');
+      setStatus('🎙 Startを押して話してください（息継ぎしても継続します）', '');
       setDebug('event: local browser speak ended');
     };
 
@@ -954,7 +1001,7 @@ function sendNext(){
 function resetView(){
   cleanupRecognition();
   $('result').textContent = '';
-  setStatus('🎙 Startを押して話してください', '');
+  setStatus('🎙 Startを押して話してください（息継ぎしても継続します）', '');
 }
 
 window.addEventListener('message', function(e){
