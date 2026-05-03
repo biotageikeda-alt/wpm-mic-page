@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - Image Top / AB Filter / IPA Big</title>
+  <title>Mic Recognition - Image First / Phrase Under Image / IPA Big</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{
@@ -32,6 +32,8 @@
     .stop{background:#64748b;}.yellow{background:#f59e0b;}.cyan{background:#0ea5e9;}.purple{background:#6d5dfc;}.gray{background:#475569;}
     .wide{width:100%;background:#64748b;}
     .subBtns button{min-width:auto;padding:8px 14px;font-size:13px;border-radius:999px;}
+    .subBtns button.active{box-shadow:0 0 0 2px rgba(255,255,255,.38) inset;filter:brightness(1.12);}
+    #ipaBigBtn.active{background:#7c3aed!important;color:#fff!important;}
     .meterWrap{display:flex;align-items:center;gap:8px;margin-top:8px;color:#cbd5e1;font-weight:700;}
     .meter{flex:1;height:10px;border-radius:999px;background:#334155;overflow:hidden;border:1px solid rgba(255,255,255,.15);}
     .bar{height:100%;width:0%;background:#60a5fa;transition:width .12s linear;}
@@ -95,6 +97,7 @@
   </style>
 </head>
 <body>
+  <!-- Phase 3.2.0.2: 関連画像を最上部、Target sentence/フレーズを画像の下に配置 -->
   <div id="relatedImageBox" class="relatedImageBox hidden">
     <div class="relatedImageHead">
       <span>🖼 関連画像</span>
@@ -126,6 +129,7 @@
 
   <div class="controls subBtns">
     <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
+    <button id="ipaBigBtn" class="purple" onclick="toggleIPABig()">IPA大</button>
     <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
     <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
     <button class="gray" onclick="sendPrev()">◀ Prev</button>
@@ -152,7 +156,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_03200_image_top_ab_filter_ipa_big_full'; })();
+(function(){ window.__micPageBuild = 'mic_html_03202_image_first_phrase_under_image_ipa_big_full'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -226,6 +230,14 @@ function renderSentence(){
   }
   var btn=$('ipaBtn');
   if(btn) btn.textContent=getIpaModeLabel();
+  var bigBtn=$('ipaBigBtn');
+  if(bigBtn) bigBtn.classList.toggle('active', ipaMode===3);
+}
+function toggleIPABig(){
+  ipaMode = (Number(ipaMode)===3) ? 0 : 3;
+  renderSentence();
+  try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){}
+  postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
 }
 function toggleIPA(){
   var idx=IPA_MODE_ORDER.indexOf(Number(ipaMode));
