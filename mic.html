@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - Related Image Ready</title>
+  <title>Mic Recognition - Image Top / AB Filter / IPA Big</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{
@@ -17,6 +17,9 @@
     .sentence{background:#334155;color:#fff;border-radius:10px;padding:15px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;}
     .sentenceText{display:block;}
     .ipaLine{margin-top:10px;color:#bfdbfe;font-size:15px;line-height:1.45;font-weight:700;opacity:.96;word-break:break-word;}
+    .sentence.ipaBigMode{padding:16px 15px;}
+    .ipaBigLine{color:#fde68a;font-size:25px;line-height:1.38;font-weight:950;letter-spacing:.01em;word-break:break-word;}
+    .ipaBigSubLine{margin-top:10px;color:#cbd5e1;font-size:13px;line-height:1.45;font-weight:700;opacity:.78;word-break:break-word;}
     .badges{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 10px;}
     .badge{border:1px solid rgba(255,255,255,.20);background:#334155;color:#dbeafe;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;}
     .badge.ok{background:#dcfce7;color:#166534;border-color:#86efac;}
@@ -33,7 +36,11 @@
     .meter{flex:1;height:10px;border-radius:999px;background:#334155;overflow:hidden;border:1px solid rgba(255,255,255,.15);}
     .bar{height:100%;width:0%;background:#60a5fa;transition:width .12s linear;}
     .result{margin-top:18px;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;font-size:17px;line-height:1.5;min-height:28px;}
-    .previewBox{margin-top:20px;}.previewTitle{color:#93c5fd;font-size:14px;font-weight:800;margin-bottom:8px;}
+    .previewBox{margin-top:20px;}
+    .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+    .previewTitle{color:#93c5fd;font-size:14px;font-weight:800;}
+    .scriptDisplayBtn{min-width:auto;padding:7px 12px;border-radius:999px;background:#334155;color:#dbeafe;border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:900;}
+    .scriptDisplayBtn.active{background:#7c3aed;color:#fff;border-color:#a78bfa;}
     .previewText{background:#0f172a;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px;max-height:260px;overflow:auto;color:#dbeafe;}
     .line{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:start;border-bottom:1px solid rgba(255,255,255,.08);padding:7px 0;}
     .line.current{background:rgba(99,102,241,.20);border-left:3px solid #818cf8;border-radius:6px;padding-left:7px;}
@@ -88,9 +95,6 @@
   </style>
 </head>
 <body>
-  <div class="label">Target sentence:</div>
-  <div id="sentence" class="sentence">(no sentence)</div>
-
   <div id="relatedImageBox" class="relatedImageBox hidden">
     <div class="relatedImageHead">
       <span>🖼 関連画像</span>
@@ -103,6 +107,9 @@
       <div id="relatedImageMeta" class="relatedImageMeta">タップで拡大できます。</div>
     </div>
   </div>
+
+  <div class="label">Target sentence:</div>
+  <div id="sentence" class="sentence">(no sentence)</div>
 
   <div class="badges">
     <span class="badge ok">cache: ready</span>
@@ -135,14 +142,17 @@
   <div id="result" class="result"></div>
 
   <div class="previewBox">
-    <div class="previewTitle">Script preview</div>
+    <div class="previewHeader">
+      <div class="previewTitle">Script preview</div>
+      <button id="scriptDisplayBtn" class="scriptDisplayBtn" type="button" onclick="toggleScriptDisplayMode()">表示: Role</button>
+    </div>
     <div id="scriptPreview" class="previewText">(no script preview)</div>
   </div>
 
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_03192_related_image_popup_bundle_full'; })();
+(function(){ window.__micPageBuild = 'mic_html_03200_image_top_ab_filter_ipa_big_full'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -152,7 +162,9 @@ var scriptPreview = params.get('script') || '';
 var returnUrl = params.get('return') || '';
 var mode = params.get('mode') || 'popup';
 var token = params.get('token') || 'wpm_mic_result_latest';
-var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only
+var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only, 3 = IPA big + English small
+var IPA_MODE_ORDER = [0, 3, 2, 1];
+var scriptDisplayMode = 'role'; // role / A / B / both. Not saved; follows current role.
 var receivedIpa = params.get('ipa') || '';
 var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
 // relatedImage URL parameter is fallback only. Main path is postMessage because data URLs can exceed URL length limits.
@@ -190,10 +202,98 @@ function simpleWordToIPA(word){
 function fallbackSentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; if(ipaCache[text]) return ipaCache[text]; var result=text.split(/\s+/).map(function(w){ var ipa=simpleWordToIPA(w); return ipa?'/'+ipa+'/':''; }).filter(Boolean).join(' '); ipaCache[text]=result; return result; }
 function isReceivedIpaForCurrentSentence(text){ return !!receivedIpa && !!receivedIpaTarget && normalizeForIpaSync(receivedIpaTarget)===normalizeForIpaSync(text); }
 function sentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; return isReceivedIpaForCurrentSentence(text) ? String(receivedIpa).trim() : fallbackSentenceToIPA(text); }
-function renderSentence(){ var el=$('sentence'); if(!el) return; var en=sentence||'(no sentence)'; var ipa=sentenceToIPA(sentence); if(ipaMode===0){ el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span><div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>'; } else if(ipaMode===1){ el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span>'; } else { el.innerHTML='<div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>'; } $('ipaBtn').textContent = ipaMode===0?'英+IPA':(ipaMode===1?'English':'IPA only'); }
-function toggleIPA(){ ipaMode=(ipaMode+1)%3; renderSentence(); try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){} postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode}); }
+function getIpaModeLabel(){
+  if(ipaMode===0) return '英+IPA';
+  if(ipaMode===3) return 'IPA大';
+  if(ipaMode===2) return 'IPA only';
+  if(ipaMode===1) return 'English';
+  return '英+IPA';
+}
+function renderSentence(){
+  var el=$('sentence');
+  if(!el) return;
+  var en=sentence||'(no sentence)';
+  var ipa=sentenceToIPA(sentence);
+  el.classList.toggle('ipaBigMode', ipaMode===3);
+  if(ipaMode===0){
+    el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span><div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
+  } else if(ipaMode===3){
+    el.innerHTML='<div class="ipaBigLine">'+escapeHtml(ipa||'(IPA not available)')+'</div><div class="ipaBigSubLine">'+escapeHtml(en)+'</div>';
+  } else if(ipaMode===2){
+    el.innerHTML='<div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
+  } else {
+    el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span>';
+  }
+  var btn=$('ipaBtn');
+  if(btn) btn.textContent=getIpaModeLabel();
+}
+function toggleIPA(){
+  var idx=IPA_MODE_ORDER.indexOf(Number(ipaMode));
+  if(idx<0) idx=0;
+  ipaMode=IPA_MODE_ORDER[(idx+1)%IPA_MODE_ORDER.length];
+  renderSentence();
+  try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){}
+  postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
+}
 
-function renderScriptPreview(){ var el=$('scriptPreview'); if(!el) return; var text=String(scriptPreview||'').trim(); if(!text){ el.textContent='(no script preview)'; return; } var lines=text.split(/\n+/).map(function(x){return x.trim();}).filter(Boolean); var html=lines.map(function(line,i){ var m=line.match(/^#?(\d+)?\s*([AB]):\s*(.*)$/i); var tag='N', body=line, no=(i+1)+'.'; if(m){ no=m[1]?m[1]+'.':no; tag=m[2].toUpperCase(); body=m[3]||''; } var cur=normalizeForIpaSync(body)===normalizeForIpaSync(sentence); return '<div class="line '+(cur?'current':'')+'"><span class="tag tag'+tag+'">'+escapeHtml(tag)+'</span><div class="txt"><span class="no">'+escapeHtml(no)+'</span>'+escapeHtml(body)+'</div></div>'; }).join(''); el.innerHTML=html; var cur=el.querySelector('.line.current'); if(cur) cur.scrollIntoView({block:'nearest'}); }
+function getEffectiveScriptDisplayMode(){
+  if(scriptDisplayMode==='A' || scriptDisplayMode==='B' || scriptDisplayMode==='both') return scriptDisplayMode;
+  var r=String(role||'B').toUpperCase();
+  return r==='A'?'A':'B';
+}
+function shouldShowScriptLine(tag){
+  tag=String(tag||'N').toUpperCase();
+  var mode=getEffectiveScriptDisplayMode();
+  if(mode==='both') return true;
+  if(tag==='N') return false;
+  return tag===mode;
+}
+function getScriptDisplayLabel(){
+  if(scriptDisplayMode==='both') return '表示: A+B';
+  if(scriptDisplayMode==='A') return '表示: Aのみ';
+  if(scriptDisplayMode==='B') return '表示: Bのみ';
+  return '表示: '+(String(role||'B').toUpperCase()==='A'?'Aのみ':'Bのみ');
+}
+function updateScriptDisplayButton(){
+  var btn=$('scriptDisplayBtn');
+  if(!btn) return;
+  btn.textContent=getScriptDisplayLabel();
+  btn.classList.toggle('active', scriptDisplayMode==='both');
+}
+function toggleScriptDisplayMode(){
+  var current=scriptDisplayMode;
+  if(current==='role'){
+    scriptDisplayMode='both';
+  }else if(current==='both'){
+    scriptDisplayMode='A';
+  }else if(current==='A'){
+    scriptDisplayMode='B';
+  }else{
+    scriptDisplayMode='role';
+  }
+  updateScriptDisplayButton();
+  renderScriptPreview();
+  setDebug('event: script display mode '+scriptDisplayMode);
+}
+function renderScriptPreview(){
+  var el=$('scriptPreview');
+  if(!el) return;
+  updateScriptDisplayButton();
+  var text=String(scriptPreview||'').trim();
+  if(!text){ el.textContent='(no script preview)'; return; }
+  var lines=text.split(/\n+/).map(function(x){return x.trim();}).filter(Boolean);
+  var html=lines.map(function(line,i){
+    var m=line.match(/^#?(\d+)?\s*([AB]):\s*(.*)$/i);
+    var tag='N', body=line, no=(i+1)+'.';
+    if(m){ no=m[1]?m[1]+'.':no; tag=m[2].toUpperCase(); body=m[3]||''; }
+    if(!shouldShowScriptLine(tag)) return '';
+    var cur=normalizeForIpaSync(body)===normalizeForIpaSync(sentence);
+    return '<div class="line '+(cur?'current':'')+'"><span class="tag tag'+tag+'">'+escapeHtml(tag)+'</span><div class="txt"><span class="no">'+escapeHtml(no)+'</span>'+escapeHtml(body)+'</div></div>';
+  }).filter(Boolean).join('');
+  el.innerHTML=html || '<div class="txt" style="opacity:.65;">(表示対象のフレーズがありません)</div>';
+  var cur=el.querySelector('.line.current');
+  if(cur) cur.scrollIntoView({block:'nearest'});
+}
 
 function postToParent(payload){ try{ if(window.opener && !window.opener.closed) window.opener.postMessage(payload,parentOrigin); }catch(e){} try{ if(window.parent && window.parent!==window) window.parent.postMessage(payload,parentOrigin); }catch(e){} }
 function saveMobileResult(payload){ try{ localStorage.setItem(token,JSON.stringify(payload)); }catch(e){} }
@@ -254,6 +354,7 @@ function applyTargetPayload(d){
   d=d||{};
   sentence=String(d.sentence||d.target||sentence||'');
   role=String(d.role||role||'B');
+  scriptDisplayMode='role';
   scriptPreview=String(d.script||scriptPreview||'');
   if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); }
   $('roleBadge').textContent='role: '+role;
@@ -275,7 +376,7 @@ window.addEventListener('message',function(e){
   if(d.type==='CLEAR_RELATED_IMAGE'){ clearRelatedImage(); return; }
 });
 
-function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; }catch(e){ ipaMode=0; } $('roleBadge').textContent='role: '+role; updateModeBadge(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
+function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='role'; $('roleBadge').textContent='role: '+role; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
 </script>
 </body>
