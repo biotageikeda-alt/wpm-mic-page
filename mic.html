@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - IPA Fixed</title>
+  <title>Mic Recognition - Related Image Ready</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{
@@ -11,208 +11,98 @@
       background:#1e293b;
       color:#e5e7eb;
       padding:24px 18px;
+      box-sizing:border-box;
     }
-    .label{
-      color:#93c5fd;
-      font-size:14px;
-      margin-bottom:8px;
-      font-weight:800;
-      letter-spacing:.04em;
-    }
-    .sentence{
-      background:#334155;
-      color:#fff;
-      border-radius:10px;
-      padding:15px;
-      font-size:20px;
-      line-height:1.45;
-      font-weight:800;
-      margin-bottom:12px;
-    }
+    .label{color:#93c5fd;font-size:14px;margin-bottom:8px;font-weight:800;letter-spacing:.04em;}
+    .sentence{background:#334155;color:#fff;border-radius:10px;padding:15px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;}
     .sentenceText{display:block;}
-    .ipaLine{
-      margin-top:10px;
-      color:#bfdbfe;
-      font-size:15px;
-      line-height:1.45;
-      font-weight:700;
-      opacity:.96;
-      word-break:break-word;
+    .ipaLine{margin-top:10px;color:#bfdbfe;font-size:15px;line-height:1.45;font-weight:700;opacity:.96;word-break:break-word;}
+    .badges{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 10px;}
+    .badge{border:1px solid rgba(255,255,255,.20);background:#334155;color:#dbeafe;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;}
+    .badge.ok{background:#dcfce7;color:#166534;border-color:#86efac;}
+    .badge.warn{background:#fef3c7;color:#92400e;border-color:#fbbf24;}
+    .status{font-size:14px;color:#cbd5e1;margin:8px 0;min-height:20px;}
+    .status.listening{color:#fbbf24;}.status.done{color:#86efac;}.status.err{color:#fca5a5;}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
+    button{border:none;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:850;color:#fff;cursor:pointer;background:#3b82f6;min-width:100px;}
+    button:disabled{opacity:.45;cursor:not-allowed;background:#64748b;}
+    .stop{background:#64748b;}.yellow{background:#f59e0b;}.cyan{background:#0ea5e9;}.purple{background:#6d5dfc;}.gray{background:#475569;}
+    .wide{width:100%;background:#64748b;}
+    .subBtns button{min-width:auto;padding:8px 14px;font-size:13px;border-radius:999px;}
+    .meterWrap{display:flex;align-items:center;gap:8px;margin-top:8px;color:#cbd5e1;font-weight:700;}
+    .meter{flex:1;height:10px;border-radius:999px;background:#334155;overflow:hidden;border:1px solid rgba(255,255,255,.15);}
+    .bar{height:100%;width:0%;background:#60a5fa;transition:width .12s linear;}
+    .result{margin-top:18px;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;font-size:17px;line-height:1.5;min-height:28px;}
+    .previewBox{margin-top:20px;}.previewTitle{color:#93c5fd;font-size:14px;font-weight:800;margin-bottom:8px;}
+    .previewText{background:#0f172a;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px;max-height:260px;overflow:auto;color:#dbeafe;}
+    .line{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:start;border-bottom:1px solid rgba(255,255,255,.08);padding:7px 0;}
+    .line.current{background:rgba(99,102,241,.20);border-left:3px solid #818cf8;border-radius:6px;padding-left:7px;}
+    .line.current .txt{color:#c7d2fe;font-weight:900;}.line:last-child{border-bottom:none;}
+    .tag{border-radius:999px;padding:3px 7px;font-size:12px;font-weight:900;text-align:center;}
+    .tagA{background:#dbeafe;color:#1d4ed8;}.tagB{background:#ffe4e6;color:#be123c;}.tagN{background:#334155;color:#cbd5e1;}
+    .txt{font-size:14px;line-height:1.55;color:#f8fafc;white-space:pre-wrap;word-break:break-word;}
+    .debug{margin-top:16px;color:#93c5fd;font-size:13px;word-break:break-word;}
+    .hidden{display:none!important;}
+
+    /* Phase 3.1.9 related image preview inside mic popup */
+    .relatedImageBox{
+      margin:10px 0 12px;
+      background:#0f172a;
+      border:1px solid rgba(147,197,253,.28);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
     }
-    .badges{
-      display:flex;
-      flex-wrap:wrap;
-      gap:5px;
-      margin:6px 0 10px;
-    }
-    .badge{
-      border:1px solid rgba(255,255,255,.20);
-      background:#334155;
-      color:#dbeafe;
-      border-radius:999px;
-      padding:4px 9px;
-      font-size:11px;
-      font-weight:800;
-    }
-    .badge.ok{
-      background:#dcfce7;
-      color:#166534;
-      border-color:#86efac;
-    }
-    .badge.warn{
-      background:#fef3c7;
-      color:#92400e;
-      border-color:#fbbf24;
-    }
-    .status{
-      font-size:14px;
-      color:#cbd5e1;
-      margin:8px 0;
-      min-height:20px;
-    }
-    .status.listening{color:#fbbf24;}
-    .status.done{color:#86efac;}
-    .status.err{color:#fca5a5;}
-    .controls{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin:8px 0;
-    }
-    button{
-      border:none;
-      border-radius:10px;
-      padding:10px 16px;
-      font-size:15px;
-      font-weight:850;
-      color:#fff;
-      cursor:pointer;
-      background:#3b82f6;
-      min-width:100px;
-    }
-    button:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-      background:#64748b;
-    }
-    .stop{background:#64748b;}
-    .subBtns button{
-      min-width:auto;
-      padding:8px 14px;
-      font-size:13px;
-      border-radius:999px;
-    }
-    .yellow{background:#f59e0b;}
-    .cyan{background:#0ea5e9;}
-    .purple{background:#6d5dfc;}
-    .gray{background:#475569;}
-    .wide{
-      width:100%;
-      background:#64748b;
-    }
-    .meterWrap{
+    .relatedImageHead{
       display:flex;
       align-items:center;
       gap:8px;
-      margin-top:8px;
-      color:#cbd5e1;
-      font-weight:700;
+      padding:9px 10px;
+      background:#172554;
+      color:#bfdbfe;
+      font-size:12px;
+      font-weight:900;
     }
-    .meter{
-      flex:1;
-      height:10px;
+    .relatedImageHead .spacer{flex:1;}
+    .relatedImageHead button{
+      min-width:auto;
+      padding:5px 10px;
       border-radius:999px;
+      font-size:11px;
       background:#334155;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.15);
-    }
-    .bar{
-      height:100%;
-      width:0%;
-      background:#60a5fa;
-      transition:width .12s linear;
-    }
-    .result{
-      margin-top:18px;
-      background:#111827;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:12px;
-      padding:14px;
-      font-size:17px;
-      line-height:1.5;
-      min-height:28px;
-    }
-    .previewBox{margin-top:20px;}
-    .previewTitle{
-      color:#93c5fd;
-      font-size:14px;
-      font-weight:800;
-      margin-bottom:8px;
-    }
-    .previewText{
-      background:#0f172a;
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:12px;
-      padding:10px;
-      max-height:260px;
-      overflow:auto;
       color:#dbeafe;
+      border:1px solid rgba(255,255,255,.18);
     }
-    .line{
-      display:grid;
-      grid-template-columns:44px 1fr;
-      gap:8px;
-      align-items:start;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      padding:7px 0;
+    .relatedImageBody{padding:10px;background:#111827;}
+    .relatedImageImg{
+      display:block;
+      width:100%;
+      max-height:210px;
+      object-fit:contain;
+      background:#fff;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.14);
+      cursor:pointer;
     }
-
-    .line.current{
-      background:rgba(99,102,241,.20);
-      border-left:3px solid #818cf8;
-      border-radius:6px;
-      padding-left:7px;
-    }
-    .line.current .txt{
-      color:#c7d2fe;
-      font-weight:900;
-    }
-    .line:last-child{border-bottom:none;}
-    .tag{
-      border-radius:999px;
-      padding:3px 7px;
-      font-size:12px;
-      font-weight:900;
-      text-align:center;
-    }
-    .tagA{background:#dbeafe;color:#1d4ed8;}
-    .tagB{background:#ffe4e6;color:#be123c;}
-    .tagN{background:#334155;color:#cbd5e1;}
-    .txt{
-      font-size:14px;
-      line-height:1.55;
-      color:#f8fafc;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .no{
-      color:#93c5fd;
-      font-size:12px;
-      font-weight:800;
-      margin-right:4px;
-    }
-    .debug{
-      margin-top:16px;
-      color:#93c5fd;
-      font-size:13px;
-      word-break:break-word;
-    }
+    .relatedImageMeta{margin-top:6px;color:#cbd5e1;font-size:11px;line-height:1.4;}
   </style>
 </head>
-
 <body>
   <div class="label">Target sentence:</div>
   <div id="sentence" class="sentence">(no sentence)</div>
+
+  <div id="relatedImageBox" class="relatedImageBox hidden">
+    <div class="relatedImageHead">
+      <span>🖼 関連画像</span>
+      <span id="relatedImageTitle" style="opacity:.82;"></span>
+      <span class="spacer"></span>
+      <button id="relatedImageToggleBtn" type="button" onclick="toggleRelatedImage()">閉じる</button>
+    </div>
+    <div id="relatedImageBody" class="relatedImageBody">
+      <img id="relatedImageImg" class="relatedImageImg" alt="関連画像" onclick="openRelatedImageLarge()">
+      <div id="relatedImageMeta" class="relatedImageMeta">タップで拡大できます。</div>
+    </div>
+  </div>
 
   <div class="badges">
     <span class="badge ok">cache: ready</span>
@@ -221,8 +111,7 @@
     <span id="modeBadge" class="badge">mode: standard</span>
   </div>
 
-  <div id="status" class="status">🎙 Startを押して話してください</div>
-
+  <div id="status" class="status">Startを押して話してください</div>
   <div class="controls">
     <button id="startBtn" onclick="startRec()">🎙 Start</button>
     <button id="stopBtn" class="stop" onclick="stopRec()" disabled>■ Stop</button>
@@ -253,9 +142,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){
-  window.__micPageBuild = 'mic_html_0502S_auto_stop_2s_full_keep';
-})();
+(function(){ window.__micPageBuild = 'mic_html_0319_related_image_popup_full'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -265,810 +152,79 @@ var scriptPreview = params.get('script') || '';
 var returnUrl = params.get('return') || '';
 var mode = params.get('mode') || 'popup';
 var token = params.get('token') || 'wpm_mic_result_latest';
-
-// IPA display mode:
-// 0 = English + IPA, 1 = English only, 2 = IPA only.
-// Default is always English + IPA.
-var ipaMode = 0;
-
-// IPA received from GAS.
-// Important: IPA is valid only when receivedIpaTarget matches current sentence.
+var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only
 var receivedIpa = params.get('ipa') || '';
 var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
-
+var relatedImageDataUrl = params.get('relatedImage') || '';
+var relatedImageTitle = params.get('relatedImageTitle') || '';
 var ipaCache = {};
-var recognition = null;
-var isListening = false;
-var heardFinal = '';
-var heardInterim = '';
-var lastAnyResultAt = 0;
-var hardTimer = null;
-var noSpeechTimer = null;
-var softEndTimer = null;
-var audioCtx = null;
-var analyser = null;
-var micStream = null;
-var meterRaf = null;
-
+var recognition = null, isListening = false, heardFinal = '', heardInterim = '', lastAnyResultAt = 0;
+var hardTimer = null, noSpeechTimer = null, softEndTimer = null, silenceAutoStopTimer = null;
+var audioCtx = null, analyser = null, micStream = null, meterRaf = null;
 var ua = navigator.userAgent || '';
 var IS_ANDROID = /Android/i.test(ua);
 var IS_IOS = /iPhone|iPad|iPod/i.test(ua);
-
 var MAX_LISTEN_MS = IS_ANDROID ? 16000 : 12000;
-var SILENCE_END_MS = IS_ANDROID ? 9000 : 6500;
-
-// 入力後の自動停止：認識結果が出たあと、無音が約2秒続いたらStopへ切替
-// ※Start直後の無音では止めない。heardFinal / heardInterim が出てから有効。
 var AUTO_STOP_AFTER_SILENCE_MS = 2000;
 var AUTO_STOP_LEVEL_PCT = 4;
 var AUTO_STOP_MIN_AFTER_RESULT_MS = 500;
-
-// AndroidのWeb Speech APIはonendが遅い/不安定なため、結果更新後の保険タイマーも2秒寄せ
-var SOFT_END_AFTER_INTERIM_MS = IS_ANDROID ? 2200 : 2200;
-var silenceAutoStopTimer = null;
+var SOFT_END_AFTER_INTERIM_MS = 2200;
 
 function $(id){ return document.getElementById(id); }
+function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function setStatus(text, cls){ var el=$('status'); if(el){ el.textContent=text||''; el.className='status '+(cls||''); } var b=$('statusBadge'); if(b){ b.textContent='status: '+(cls==='listening'?'listening':cls==='err'?'error':cls==='done'?'done':'ready'); b.className='badge '+(cls==='err'?'warn':'ok'); } }
+function setDebug(text){ var el=$('debug'); if(el) el.textContent = text || ''; }
+function setButtons(listening){ $('startBtn').disabled=!!listening; $('stopBtn').disabled=!listening; }
 
-function setStatus(text, cls){
-  var el = $('status');
-  if (!el) return;
-  el.textContent = text || '';
-  el.className = 'status ' + (cls || '');
-}
-
-function setDebug(text){
-  var el = $('debug');
-  if (el) el.textContent = text || '';
-}
-
-function setButtons(listening){
-  $('startBtn').disabled = !!listening;
-  $('stopBtn').disabled = !listening;
-}
-
-function escapeHtml(s){
-  return String(s || '').replace(/[&<>"']/g, function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-  });
-}
-
-function normalizeForIpaSync(text){
-  return String(text || '')
-    .toLowerCase()
-    .replace(/[’‘]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[^a-z0-9']+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function ensureTopLevel(){
-  try {
-    if (window.top !== window.self) {
-      setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。', 'err');
-      setDebug('event: iframe detected / microphone blocked by Permissions Policy');
-    }
-  } catch(e){}
-}
-
-function updateModeBadge(){
-  var el = $('modeBadge');
-  if (!el) return;
-
-  if (IS_ANDROID) {
-    el.textContent = 'mode: Android stable';
-    el.className = 'badge ok';
-  } else if (IS_IOS) {
-    el.textContent = 'mode: iOS limited';
-    el.className = 'badge warn';
-  } else {
-    el.textContent = 'mode: standard';
-    el.className = 'badge';
-  }
-}
-
+function normalizeForIpaSync(text){ return String(text||'').toLowerCase().replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[^a-z0-9']+/g,' ').replace(/\s+/g,' ').trim(); }
+function updateModeBadge(){ var el=$('modeBadge'); if(!el) return; if(IS_ANDROID){el.textContent='mode: Android stable';el.className='badge ok';} else if(IS_IOS){el.textContent='mode: iOS limited';el.className='badge warn';} else {el.textContent='mode: standard';el.className='badge';} }
 function simpleWordToIPA(word){
-  var w = String(word || '').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g, '');
-  if (!w) return '';
-
-  var dict = {
-    "i":"aɪ","i'm":"aɪm","ive":"aɪv","i've":"aɪv",
-    "you":"juː","you're":"jʊr","youre":"jʊr","your":"jɔːr",
-    "we":"wiː","we're":"wɪr","were":"wɜːr","are":"ɑːr",
-    "the":"ðə","a":"ə","an":"ən","and":"ænd","or":"ɔːr",
-    "to":"tuː","of":"əv","in":"ɪn","on":"ɑːn","for":"fɔːr",
-    "with":"wɪð","from":"frʌm","about":"əˈbaʊt","what":"wʌt",
-    "how":"haʊ","have":"hæv","has":"hæz","been":"bɪn",
-    "working":"ˈwɜːrkɪŋ","work":"wɜːrk","inside":"ˌɪnˈsaɪd",
-    "sales":"seɪlz","japan":"dʒəˈpæn","hiroaki":"hiːroʊˈɑːki",
-    "frederic":"ˈfreɪdərɪk","nice":"naɪs","meet":"miːt",
-    "heard":"hɜːrd","recently":"ˈriːsəntli","great":"ɡreɪt",
-    "finally":"ˈfaɪnəli","person":"ˈpɜːrsən","tell":"tel",
-    "me":"miː","kind":"kaɪnd","projects":"ˈprɑːdʒekts",
-    "focusing":"ˈfoʊkəsɪŋ","now":"naʊ","rening":"ˈriːnɪŋ",
-    "columns":"ˈkɑːləmz","causing":"ˈkɔːzɪŋ","some":"sʌm",
-    "trouble":"ˈtrʌbəl","lately":"ˈleɪtli","yeah":"jeə",
-    "pharmaceutical":"ˌfɑːrməˈsuːtɪkəl","takeda":"təˈkeɪdə",
-    "appointment":"əˈpɔɪntmənt","significant":"sɪɡˈnɪfɪkənt",
-    "deal":"diːl","key":"kiː","secure":"sɪˈkjʊr","able":"ˈeɪbəl",
-    "could":"kʊd","potentially":"pəˈtenʃəli","lead":"liːd",
-    "took":"tʊk","over":"ˈoʊvər","six":"sɪks","months":"mʌnθs",
-    "build":"bɪld","relationship":"rɪˈleɪʃənʃɪp",
-    "triggered":"ˈtrɪɡərd","opportunity":"ˌɑːpərˈtuːnəti",
-    "specificially":"spəˈsɪfɪkli","specifically":"spəˈsɪfɪkli"
-  };
-
-  if (dict[w]) return dict[w];
-
-  var ipa = w;
-  ipa = ipa.replace(/tion\b/g,"ʃən")
-           .replace(/sion\b/g,"ʒən")
-           .replace(/ph/g,"f")
-           .replace(/th/g,"θ")
-           .replace(/sh/g,"ʃ")
-           .replace(/ch/g,"tʃ")
-           .replace(/oo/g,"uː")
-           .replace(/ee/g,"iː")
-           .replace(/ea/g,"iː")
-           .replace(/ai/g,"eɪ")
-           .replace(/ay/g,"eɪ")
-           .replace(/ow/g,"aʊ")
-           .replace(/ou/g,"aʊ")
-           .replace(/ar/g,"ɑːr")
-           .replace(/er/g,"ɜːr")
-           .replace(/or/g,"ɔːr");
-  return ipa;
+  var w=String(word||'').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g,''); if(!w) return '';
+  var dict={"i":"aɪ","i'm":"aɪm","i've":"aɪv","you":"juː","you're":"jʊr","your":"jɔːr","we":"wiː","we're":"wɪr","were":"wɜːr","are":"ɑːr","the":"ðə","a":"ə","an":"ən","and":"ænd","or":"ɔːr","to":"tuː","of":"əv","in":"ɪn","on":"ɑːn","for":"fɔːr","with":"wɪð","from":"frʌm","about":"əˈbaʊt","what":"wʌt","how":"haʊ","have":"hæv","has":"hæz","been":"bɪn","working":"ˈwɜːrkɪŋ","work":"wɜːrk","inside":"ˌɪnˈsaɪd","sales":"seɪlz","japan":"dʒəˈpæn","hiroaki":"hiːroʊˈɑːki","frederic":"ˈfreɪdərɪk","nice":"naɪs","meet":"miːt","heard":"hɜːrd","recently":"ˈriːsəntli","great":"ɡreɪt","finally":"ˈfaɪnəli","person":"ˈpɜːrsən","tell":"tel","me":"miː","kind":"kaɪnd","projects":"ˈprɑːdʒekts","focusing":"ˈfoʊkəsɪŋ","now":"naʊ","rening":"ˈriːnɪŋ","columns":"ˈkɑːləmz","causing":"ˈkɔːzɪŋ","some":"sʌm","trouble":"ˈtrʌbəl","lately":"ˈleɪtli","yeah":"jeə","pharmaceutical":"ˌfɑːrməˈsuːtɪkəl","takeda":"təˈkeɪdə","appointment":"əˈpɔɪntmənt","significant":"sɪɡˈnɪfɪkənt","deal":"diːl","key":"kiː","secure":"sɪˈkjʊr","able":"ˈeɪbəl","could":"kʊd","potentially":"pəˈtenʃəli","lead":"liːd","took":"tʊk","over":"ˈoʊvər","six":"sɪks","months":"mʌnθs","build":"bɪld","relationship":"rɪˈleɪʃənʃɪp","opportunity":"ˌɑːpərˈtuːnəti","specifically":"spəˈsɪfɪkli"};
+  if(dict[w]) return dict[w];
+  return w.replace(/tion\b/g,'ʃən').replace(/sion\b/g,'ʒən').replace(/ph/g,'f').replace(/th/g,'θ').replace(/sh/g,'ʃ').replace(/ch/g,'tʃ').replace(/oo/g,'uː').replace(/ee/g,'iː').replace(/ea/g,'iː').replace(/ai/g,'eɪ').replace(/ay/g,'eɪ').replace(/ow/g,'aʊ').replace(/ou/g,'aʊ').replace(/ar/g,'ɑːr').replace(/er/g,'ɜːr').replace(/or/g,'ɔːr');
 }
-
-function fallbackSentenceToIPA(text){
-  text = String(text || '').trim();
-  if (!text) return '';
-
-  if (ipaCache[text]) return ipaCache[text];
-
-  var words = text.split(/\s+/).map(function(word){
-    var clean = word.replace(/[“”]/g, '"').replace(/[’]/g, "'");
-    var ipa = simpleWordToIPA(clean);
-    return ipa ? '/' + ipa + '/' : '';
-  }).filter(Boolean);
-
-  var result = words.join(' ');
-  ipaCache[text] = result;
-  return result;
-}
-
-function isReceivedIpaForCurrentSentence(text){
-  if (!receivedIpa || !String(receivedIpa).trim()) return false;
-  if (!receivedIpaTarget || !String(receivedIpaTarget).trim()) return false;
-  return normalizeForIpaSync(receivedIpaTarget) === normalizeForIpaSync(text);
-}
-
-function sentenceToIPA(text){
-  text = String(text || '').trim();
-  if (!text) return '';
-
-  if (isReceivedIpaForCurrentSentence(text)) {
-    return String(receivedIpa).trim();
-  }
-
-  return fallbackSentenceToIPA(text);
-}
-
-function renderSentence(){
-  var el = $('sentence');
-  if (!el) return;
-
-  var en = sentence || '(no sentence)';
-  var ipa = sentenceToIPA(sentence);
-
-  if (ipaMode === 0) {
-    el.innerHTML =
-      '<span class="sentenceText">' + escapeHtml(en) + '</span>' +
-      '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
-  } else if (ipaMode === 1) {
-    el.innerHTML = '<span class="sentenceText">' + escapeHtml(en) + '</span>';
-  } else {
-    el.innerHTML = '<div class="ipaLine">' + escapeHtml(ipa || '(IPA not available)') + '</div>';
-  }
-
-  var btn = $('ipaBtn');
-  if (btn) {
-    btn.textContent = ipaMode === 0 ? '英+IPA' : (ipaMode === 1 ? '英語のみ' : 'IPAのみ');
-  }
-}
-
-function setSentence(text, r, ipa, ipaTarget){
-  var nextSentence = String(text || '').trim();
-  var oldSentence = sentence;
-
-  sentence = nextSentence;
-  role = r || role || 'B';
-
-  if (typeof ipa !== 'undefined' && String(ipa || '').trim()) {
-    var target = String(ipaTarget || '').trim();
-
-    if (target && normalizeForIpaSync(target) === normalizeForIpaSync(nextSentence)) {
-      receivedIpa = String(ipa || '').trim();
-      receivedIpaTarget = target;
-    } else if (!target && normalizeForIpaSync(oldSentence) === normalizeForIpaSync(nextSentence)) {
-      receivedIpa = String(ipa || '').trim();
-      receivedIpaTarget = nextSentence;
-    } else {
-      receivedIpa = '';
-      receivedIpaTarget = '';
-    }
-  } else if (normalizeForIpaSync(oldSentence) !== normalizeForIpaSync(nextSentence)) {
-    receivedIpa = '';
-    receivedIpaTarget = '';
-  }
-
-  $('roleBadge').textContent = 'role: ' + role;
-  renderSentence();
-  setStatus('🎙 Startを押して話してください', '');
-  $('result').textContent = '';
-
-  // センテンス切替時にScript previewの現在行ハイライトを更新
-  setScriptPreview(scriptPreview);
-
-  setDebug('event: target ready');
-}
-
-function parseScriptPreview(text){
-  text = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-  if (!text) return [];
-
-  var normalized = text
-    .replace(/\s*(#\d+\s*A:)\s*/g, '\n$1 ')
-    .replace(/\s*(#\d+\s*B:)\s*/g, '\n$1 ')
-    .replace(/\s*(\bA:)\s*/g, '\n$1 ')
-    .replace(/\s*(\bB:)\s*/g, '\n$1 ')
-    .trim();
-
-  return normalized.split('\n').map(function(x){ return x.trim(); }).filter(Boolean).map(function(line){
-    var m = line.match(/^(#\d+)?\s*([AB]):\s*(.*)$/i);
-    return m ? {no:m[1] || '', role:m[2].toUpperCase(), text:m[3] || ''} : {no:'', role:'', text:line};
-  });
-}
-
-function setScriptPreview(text){
-  scriptPreview = String(text || '');
-  var rows = parseScriptPreview(scriptPreview);
-  var el = $('scriptPreview');
-
-  if (!rows.length) {
-    el.textContent = '(no script preview)';
-    return;
-  }
-
-  el.innerHTML = rows.map(function(r){
-    var cls = r.role === 'A' ? 'tagA' : (r.role === 'B' ? 'tagB' : 'tagN');
-    var no = r.no ? '<span class="no">' + escapeHtml(r.no) + '</span>' : '';
-    var isCurrent = String(r.text || '').trim() === String(sentence || '').trim();
-    var html = '<div class="line' + (isCurrent ? ' current' : '') + '">'
-      + '<div class="tag ' + cls + '">' + escapeHtml(r.role || '-') + '</div>'
-      + '<div class="txt">' + no + escapeHtml(r.text) + '</div>'
-      + '</div>';
-    return html;
-  }).join('');
-
-  // 現在行をスクロール表示
-  var cur = el.querySelector('.line.current');
-  if (cur) cur.scrollIntoView({ block: 'nearest' });
-}
-
-function toggleIPA(){
-  ipaMode = (ipaMode + 1) % 3;
-  renderSentence();
-  try { localStorage.setItem('wpm_mic_ipa_mode', String(ipaMode)); } catch(e){}
-  postToParent({type:'MIC_TOGGLE_IPA', role:role, target:sentence, ipaMode:ipaMode});
-}
-
-function cleanupTimers(){
-  if (hardTimer){ clearTimeout(hardTimer); hardTimer = null; }
-  if (noSpeechTimer){ clearTimeout(noSpeechTimer); noSpeechTimer = null; }
-  if (softEndTimer){ clearTimeout(softEndTimer); softEndTimer = null; }
-  if (silenceAutoStopTimer){ clearTimeout(silenceAutoStopTimer); silenceAutoStopTimer = null; }
-}
-
-function clearSilenceAutoStopTimer(){
-  if (silenceAutoStopTimer){
-    clearTimeout(silenceAutoStopTimer);
-    silenceAutoStopTimer = null;
-  }
-}
-
-function hasHeardText(){
-  return !!(String(heardFinal || '').trim() || String(heardInterim || '').trim());
-}
-
-function handleAutoStopBySilence(pct){
-  if (!isListening || !recognition || !hasHeardText()) {
-    clearSilenceAutoStopTimer();
-    return;
-  }
-
-  if (pct > AUTO_STOP_LEVEL_PCT) {
-    clearSilenceAutoStopTimer();
-    return;
-  }
-
-  if (lastAnyResultAt && Date.now() - lastAnyResultAt < AUTO_STOP_MIN_AFTER_RESULT_MS) {
-    return;
-  }
-
-  if (silenceAutoStopTimer) return;
-
-  setDebug('event: silence detected -> auto stop in 2s');
-
-  silenceAutoStopTimer = setTimeout(function(){
-    silenceAutoStopTimer = null;
-    if (!isListening || !recognition || !hasHeardText()) return;
-
-    setDebug('event: silence 2s -> auto stop');
-    setStatus('無音が2秒続いたため、自動停止します...', 'listening');
-
-    try {
-      recognition.stop();
-    } catch(e) {
-      finishWithText(heardFinal || heardInterim, true);
-    }
-  }, AUTO_STOP_AFTER_SILENCE_MS);
-}
-
-function cleanupMeter(){
-  try { if (meterRaf) cancelAnimationFrame(meterRaf); } catch(e){}
-  meterRaf = null;
-
-  try { if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
-  micStream = null;
-
-  try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch(e){}
-  audioCtx = null;
-  analyser = null;
-
-  $('bar').style.width = '0%';
-  $('levelText').textContent = '0%';
-}
-
-function cleanupRecognition(){
-  cleanupTimers();
-  cleanupMeter();
-  isListening = false;
-  setButtons(false);
-  $('statusBadge').textContent = 'status: ready';
-  $('statusBadge').className = 'badge ok';
-}
-
-function postToParent(payload){
-  try {
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(payload, parentOrigin);
-    }
-  } catch(e){}
-
-  try {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage(payload, parentOrigin);
-    }
-  } catch(e){}
-}
-
-function saveMobileResult(payload){
-  try { localStorage.setItem(token, JSON.stringify(payload)); } catch(e){}
-}
-
-function returnToParent(payload){
-  if (mode === 'mobile' && returnUrl) {
-    saveMobileResult(payload);
-    setStatus('✅ 完了。元の画面へ戻ります...', 'done');
-    setTimeout(function(){
-      location.href = returnUrl + (returnUrl.indexOf('?') >= 0 ? '&' : '?') + 'wpmMicReturn=1&token=' + encodeURIComponent(token);
-    }, 700);
-    return;
-  }
-
-  postToParent(payload);
-}
-
-function finishWithText(text, autoStop){
-  text = String(text || '').trim();
-  cleanupRecognition();
-
-  if (text) {
-    $('result').textContent = '認識: ' + text;
-    setStatus('✅ 完了', 'done');
-    setDebug('event: final result sent');
-    returnToParent({
-      type:'MIC_RESULT',
-      text:text,
-      target:sentence,
-      role:role,
-      token:token,
-      ts:Date.now(),
-      build:window.__micPageBuild
-    });
-  } else {
-    $('result').textContent = '';
-    setStatus('停止しました。認識結果がありません。もう一度Startを押してください。', 'err');
-    setDebug(autoStop ? 'event: timeout/no result' : 'event: recognition ended without result');
-    returnToParent({
-      type:'MIC_EMPTY',
-      target:sentence,
-      role:role,
-      token:token,
-      ts:Date.now(),
-      build:window.__micPageBuild
-    });
-  }
-}
-
-function stopRec(){
-  try {
-    if (recognition && isListening) {
-      setStatus('Stopping...', 'listening');
-      recognition.stop();
-    }
-  } catch(e){
-    cleanupRecognition();
-    setStatus('停止しました。', '');
-    setDebug('event: stop exception');
-  }
-}
-
-function startMeter(stream){
-  try {
-    micStream = stream;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-
-    var source = audioCtx.createMediaStreamSource(stream);
-    source.connect(analyser);
-
-    var data = new Uint8Array(analyser.fftSize);
-
-    function tick(){
-      if (!analyser) return;
-
-      analyser.getByteTimeDomainData(data);
-      var sum = 0;
-
-      for (var i = 0; i < data.length; i++){
-        var v = (data[i] - 128) / 128;
-        sum += v * v;
-      }
-
-      var pct = Math.min(100, Math.round(Math.sqrt(sum / data.length) * 260));
-      $('bar').style.width = pct + '%';
-      $('levelText').textContent = pct + '%';
-
-      handleAutoStopBySilence(pct);
-
-      meterRaf = requestAnimationFrame(tick);
-    }
-
-    tick();
-  } catch(e){
-    setDebug('event: meter unavailable');
-  }
-}
-
-function stopSoonAfterInterim(){
-  if (!IS_ANDROID) return;
-
-  if (softEndTimer) clearTimeout(softEndTimer);
-
-  softEndTimer = setTimeout(function(){
-    if (!isListening) return;
-
-    if (heardFinal || heardInterim) {
-      setDebug('event: android soft end after interim');
-      try { recognition.stop(); } catch(e){}
-      setTimeout(function(){
-        if (isListening) finishWithText(heardFinal || heardInterim, true);
-      }, 700);
-    }
-  }, SOFT_END_AFTER_INTERIM_MS);
-}
-
-function startRec(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SR) {
-    setStatus('このブラウザは音声認識に対応していません。Chromeを使用してください。', 'err');
-    return;
-  }
-
-  if (isListening) return;
-
-  heardFinal = '';
-  heardInterim = '';
-  lastAnyResultAt = 0;
-
-  $('result').textContent = '';
-  setStatus('マイク権限を確認中...', 'listening');
-  setDebug('event: requesting microphone');
-  setButtons(true);
-
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-    startMeter(stream);
-
-    recognition = new SR();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = function(){
-      isListening = true;
-      setButtons(true);
-      setStatus('Listening...', 'listening');
-      setDebug('event: recognition started / continuous=' + recognition.continuous);
-
-      $('statusBadge').textContent = 'status: listening';
-      $('statusBadge').className = 'badge';
-
-      hardTimer = setTimeout(function(){
-        if (!isListening) return;
-        setDebug('event: hard timeout -> finish');
-        try { recognition.stop(); } catch(e){}
-        setTimeout(function(){
-          if (isListening) finishWithText(heardFinal || heardInterim, true);
-        }, 800);
-      }, MAX_LISTEN_MS);
-
-      noSpeechTimer = setTimeout(function(){
-        if (!isListening) return;
-        if (!(heardFinal || heardInterim)) {
-          setDebug('event: silence timeout -> no result');
-          try { recognition.stop(); } catch(e){}
-          setTimeout(function(){
-            if (isListening) finishWithText('', true);
-          }, 800);
-        }
-      }, SILENCE_END_MS);
-    };
-
-    recognition.onresult = function(event){
-      var finalText = '';
-      var interimText = '';
-
-      for (var i = event.resultIndex; i < event.results.length; i++){
-        var txt = '';
-        try { txt = event.results[i][0].transcript || ''; } catch(e){}
-        if (event.results[i].isFinal) finalText += txt;
-        else interimText += txt;
-      }
-
-      if (finalText.trim()) {
-        heardFinal += (heardFinal ? ' ' : '') + finalText.trim();
-        lastAnyResultAt = Date.now();
-      }
-
-      if (interimText.trim()) {
-        heardInterim = interimText.trim();
-        lastAnyResultAt = Date.now();
-      }
-
-      var show = heardFinal || heardInterim;
-
-      if (show) {
-        $('result').textContent = '認識: ' + show;
-        setDebug('event: recognition result / ' + (heardFinal ? 'final' : 'interim'));
-        clearSilenceAutoStopTimer();
-      }
-
-      if (IS_ANDROID && show) {
-        stopSoonAfterInterim();
-      }
-    };
-
-    recognition.onerror = function(e){
-      var msg = e && e.error ? e.error : 'unknown';
-      setDebug('event: recognition error: ' + msg);
-
-      if (msg === 'no-speech') {
-        if (IS_ANDROID && (heardFinal || heardInterim)) {
-          finishWithText(heardFinal || heardInterim, true);
-        }
-        return;
-      }
-
-      cleanupRecognition();
-
-      if (msg === 'not-allowed' || msg === 'service-not-allowed') {
-        setStatus('マイク権限エラー: Permission denied。Chromeのサイト設定でマイクを許可してください。', 'err');
-      } else {
-        setStatus('音声認識エラー: ' + msg, 'err');
-      }
-    };
-
-    recognition.onend = function(){
-      var text = heardFinal || heardInterim || '';
-
-      if (isListening) finishWithText(text, false);
-      else cleanupRecognition();
-
-      setDebug(text ? 'event: speech ended with text' : 'event: recognition ended without result');
-    };
-
-    try {
-      recognition.start();
-    } catch(e) {
-      cleanupRecognition();
-      setStatus('開始できません: ' + (e.message || e), 'err');
-      setDebug('event: recognition start exception');
-    }
-  }).catch(function(err){
-    cleanupRecognition();
-    setStatus('マイク権限エラー: Permission denied。Chromeのサイト設定でマイクを許可してください。', 'err');
-    setDebug('event: getUserMedia error');
-  });
-}
-
-function parsePreviewRowsForSpeak(){
-  return parseScriptPreview(scriptPreview) || [];
-}
-
-function getCurrentPreviewIndex(){
-  var rows = parsePreviewRowsForSpeak();
-  var target = String(sentence || '').trim();
-
-  if (!target) return -1;
-
-  for (var i = 0; i < rows.length; i++){
-    if (String(rows[i].text || '').trim() === target) return i;
-  }
-
-  for (var j = 0; j < rows.length; j++){
-    var t = String(rows[j].text || '').trim();
-    if (t && (t.indexOf(target) >= 0 || target.indexOf(t) >= 0)) return j;
-  }
-
-  return -1;
-}
-
-function getLocalSpeakText(r){
-  r = r === 'A' ? 'A' : 'B';
-
-  if (r === role && sentence) return sentence;
-
-  var rows = parsePreviewRowsForSpeak();
-  var idx = getCurrentPreviewIndex();
-
-  if (idx >= 0) {
-    for (var i = idx; i >= 0; i--){
-      if (rows[i] && rows[i].role === r && rows[i].text) return rows[i].text;
-    }
-    for (var j = idx + 1; j < rows.length; j++){
-      if (rows[j] && rows[j].role === r && rows[j].text) return rows[j].text;
-    }
-  }
-
-  for (var k = 0; k < rows.length; k++){
-    if (rows[k] && rows[k].role === r && rows[k].text) return rows[k].text;
-  }
-
-  return sentence || '';
-}
-
-function localBrowserSpeak(text){
-  text = String(text || '').trim();
-
-  if (!text) {
-    setStatus('再生する英文がありません。', 'err');
-    return;
-  }
-
-  try {
-    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-      setStatus('このブラウザでは音声再生に対応していません。', 'err');
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-
-    var u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US';
-    u.rate = 0.92;
-    u.pitch = 1.0;
-
-    u.onstart = function(){
-      setStatus('🔊 Playing: ' + text.slice(0, 48), 'listening');
-      setDebug('event: local browser speak start');
-    };
-
-    u.onend = function(){
-      setStatus('🎙 Startを押して話してください', '');
-      setDebug('event: local browser speak ended');
-    };
-
-    u.onerror = function(e){
-      setStatus('音声再生エラー。もう一度押してください。', 'err');
-      setDebug('event: local browser speak error: ' + (e && e.error ? e.error : 'unknown'));
-    };
-
-    setTimeout(function(){
-      window.speechSynthesis.speak(u);
-    }, 50);
-  } catch(e) {
-    setStatus('音声再生エラー: ' + (e.message || e), 'err');
-    setDebug('event: local speak exception');
-  }
-}
-
-function speakRole(r){
-  r = r === 'A' ? 'A' : 'B';
-
-  var hasParent = false;
-  try { hasParent = !!(window.opener && !window.opener.closed); } catch(e){}
-
-  if (hasParent) {
-    postToParent({type:'MIC_SPEAK_ROLE', role:r, target:sentence});
-    return;
-  }
-
-  localBrowserSpeak(getLocalSpeakText(r));
-}
-
-function sendPrev(){
-  postToParent({type:'MIC_PREV', role:role, target:sentence});
-}
-
-function sendNext(){
-  postToParent({type:'MIC_NEXT', role:role, target:sentence});
-}
-
-function resetView(){
-  cleanupRecognition();
-  $('result').textContent = '';
-  setStatus('🎙 Startを押して話してください', '');
-}
-
-window.addEventListener('message', function(e){
-  if (!e.data) return;
-
-  if (e.data.type === 'SET_TARGET') {
-    setSentence(
-      e.data.sentence || '',
-      e.data.role || role,
-      e.data.ipa || '',
-      e.data.ipaTarget || ''
-    );
-
-    if (typeof e.data.script !== 'undefined') {
-      setScriptPreview(e.data.script || '');
-    }
-
-    try { window.focus(); } catch(ex){}
-  }
-
-  if (e.data.type === 'PING') {
-    postToParent({
-      type:'MIC_READY',
-      build:window.__micPageBuild,
-      role:role,
-      target:sentence
-    });
-  }
-});
-
-ensureTopLevel();
-updateModeBadge();
-
-ipaMode = 0;
-
-setSentence(sentence, role, receivedIpa, receivedIpaTarget);
-setScriptPreview(scriptPreview);
-
-setTimeout(function(){
-  postToParent({
-    type:'MIC_READY',
-    build:window.__micPageBuild,
-    role:role,
-    target:sentence
-  });
-}, 500);
+function fallbackSentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; if(ipaCache[text]) return ipaCache[text]; var result=text.split(/\s+/).map(function(w){ var ipa=simpleWordToIPA(w); return ipa?'/'+ipa+'/':''; }).filter(Boolean).join(' '); ipaCache[text]=result; return result; }
+function isReceivedIpaForCurrentSentence(text){ return !!receivedIpa && !!receivedIpaTarget && normalizeForIpaSync(receivedIpaTarget)===normalizeForIpaSync(text); }
+function sentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; return isReceivedIpaForCurrentSentence(text) ? String(receivedIpa).trim() : fallbackSentenceToIPA(text); }
+function renderSentence(){ var el=$('sentence'); if(!el) return; var en=sentence||'(no sentence)'; var ipa=sentenceToIPA(sentence); if(ipaMode===0){ el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span><div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>'; } else if(ipaMode===1){ el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span>'; } else { el.innerHTML='<div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>'; } $('ipaBtn').textContent = ipaMode===0?'英+IPA':(ipaMode===1?'English':'IPA only'); }
+function toggleIPA(){ ipaMode=(ipaMode+1)%3; renderSentence(); try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){} postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode}); }
+
+function renderScriptPreview(){ var el=$('scriptPreview'); if(!el) return; var text=String(scriptPreview||'').trim(); if(!text){ el.textContent='(no script preview)'; return; } var lines=text.split(/\n+/).map(function(x){return x.trim();}).filter(Boolean); var html=lines.map(function(line,i){ var m=line.match(/^#?(\d+)?\s*([AB]):\s*(.*)$/i); var tag='N', body=line, no=(i+1)+'.'; if(m){ no=m[1]?m[1]+'.':no; tag=m[2].toUpperCase(); body=m[3]||''; } var cur=normalizeForIpaSync(body)===normalizeForIpaSync(sentence); return '<div class="line '+(cur?'current':'')+'"><span class="tag tag'+tag+'">'+escapeHtml(tag)+'</span><div class="txt"><span class="no">'+escapeHtml(no)+'</span>'+escapeHtml(body)+'</div></div>'; }).join(''); el.innerHTML=html; var cur=el.querySelector('.line.current'); if(cur) cur.scrollIntoView({block:'nearest'}); }
+
+function postToParent(payload){ try{ if(window.opener && !window.opener.closed) window.opener.postMessage(payload,parentOrigin); }catch(e){} try{ if(window.parent && window.parent!==window) window.parent.postMessage(payload,parentOrigin); }catch(e){} }
+function saveMobileResult(payload){ try{ localStorage.setItem(token,JSON.stringify(payload)); }catch(e){} }
+function returnToParent(payload){ if(mode==='mobile' && returnUrl){ saveMobileResult(payload); setStatus('✅ 完了。元の画面へ戻ります...','done'); setTimeout(function(){ location.href=returnUrl+(returnUrl.indexOf('?')>=0?'&':'?')+'wpmMicReturn=1&token='+encodeURIComponent(token); },700); return; } postToParent(payload); }
+
+function setRelatedImage(dataUrl, title){ relatedImageDataUrl=String(dataUrl||''); relatedImageTitle=String(title||''); var box=$('relatedImageBox'), img=$('relatedImageImg'), titleEl=$('relatedImageTitle'), meta=$('relatedImageMeta'); if(!box||!img) return; if(!relatedImageDataUrl){ box.classList.add('hidden'); img.removeAttribute('src'); return; } img.src=relatedImageDataUrl; if(titleEl) titleEl.textContent=relatedImageTitle ? '｜'+relatedImageTitle : ''; if(meta) meta.textContent=(relatedImageTitle?('「'+relatedImageTitle+'」の関連画像。'):'このテキストの関連画像。')+'タップで拡大できます。'; box.classList.remove('hidden'); $('relatedImageBody').classList.remove('hidden'); $('relatedImageToggleBtn').textContent='閉じる'; }
+function toggleRelatedImage(){ var body=$('relatedImageBody'), btn=$('relatedImageToggleBtn'); if(!body) return; var hide=!body.classList.contains('hidden'); body.classList.toggle('hidden',hide); if(btn) btn.textContent=hide?'表示':'閉じる'; }
+function openRelatedImageLarge(){ if(!relatedImageDataUrl) return; var w=window.open('','_blank'); if(!w) return; w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>関連画像</title><style>body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;box-sizing:border-box;}img{max-width:100%;max-height:96vh;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.35);}</style></head><body><img src="'+relatedImageDataUrl.replace(/"/g,'&quot;')+'"></body></html>'); w.document.close(); }
+
+function cleanupTimers(){ [hardTimer,noSpeechTimer,softEndTimer,silenceAutoStopTimer].forEach(function(t){ if(t) clearTimeout(t); }); hardTimer=noSpeechTimer=softEndTimer=silenceAutoStopTimer=null; }
+function clearSilenceAutoStopTimer(){ if(silenceAutoStopTimer){ clearTimeout(silenceAutoStopTimer); silenceAutoStopTimer=null; } }
+function hasHeardText(){ return !!(String(heardFinal||'').trim() || String(heardInterim||'').trim()); }
+function handleAutoStopBySilence(pct){ if(!isListening || !recognition || !hasHeardText()){ clearSilenceAutoStopTimer(); return; } if(pct>AUTO_STOP_LEVEL_PCT){ clearSilenceAutoStopTimer(); return; } if(lastAnyResultAt && Date.now()-lastAnyResultAt<AUTO_STOP_MIN_AFTER_RESULT_MS) return; if(silenceAutoStopTimer) return; setDebug('event: silence detected -> auto stop in 2s'); silenceAutoStopTimer=setTimeout(function(){ if(isListening && hasHeardText()){ setDebug('event: auto stop by silence'); stopRec(); } },AUTO_STOP_AFTER_SILENCE_MS); }
+function cleanupRecognition(){ cleanupTimers(); isListening=false; setButtons(false); try{ if(recognition){ recognition.onresult=recognition.onerror=recognition.onend=null; recognition.stop(); } }catch(e){} recognition=null; try{ if(meterRaf) cancelAnimationFrame(meterRaf); }catch(e){} meterRaf=null; try{ if(micStream) micStream.getTracks().forEach(function(t){t.stop();}); }catch(e){} micStream=null; try{ if(audioCtx) audioCtx.close(); }catch(e){} audioCtx=null; analyser=null; $('bar').style.width='0%'; $('levelText').textContent='0%'; }
+function finishWithText(text,autoStop){ text=String(text||'').trim(); cleanupRecognition(); if(text){ $('result').textContent='認識: '+text; setStatus('✅ 完了','done'); setDebug('event: final result sent'); returnToParent({type:'MIC_RESULT',text:text,target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); } else { $('result').textContent=''; setStatus('停止しました。認識結果がありません。もう一度Startを押してください。','err'); setDebug(autoStop?'event: timeout/no result':'event: recognition ended without result'); returnToParent({type:'MIC_EMPTY',target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); } }
+function stopRec(){ try{ if(recognition && isListening){ setStatus('Stopping...','listening'); recognition.stop(); } }catch(e){ cleanupRecognition(); setStatus('停止しました。',''); setDebug('event: stop exception'); } }
+function startMeter(stream){ try{ micStream=stream; audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; var source=audioCtx.createMediaStreamSource(stream); source.connect(analyser); var data=new Uint8Array(analyser.fftSize); function tick(){ if(!analyser) return; analyser.getByteTimeDomainData(data); var sum=0; for(var i=0;i<data.length;i++){ var v=(data[i]-128)/128; sum+=v*v; } var pct=Math.min(100,Math.round(Math.sqrt(sum/data.length)*260)); $('bar').style.width=pct+'%'; $('levelText').textContent=pct+'%'; handleAutoStopBySilence(pct); meterRaf=requestAnimationFrame(tick); } tick(); }catch(e){ setDebug('event: meter failed'); } }
+function startRec(){ var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ setStatus('このブラウザは音声認識に対応していません。Chromeを使ってください。','err'); return; } cleanupRecognition(); heardFinal=''; heardInterim=''; lastAnyResultAt=0; $('result').textContent=''; recognition=new SR(); recognition.lang='en-US'; recognition.continuous=true; recognition.interimResults=true; recognition.maxAlternatives=1; recognition.onstart=function(){ isListening=true; setButtons(true); setStatus('Listening...','listening'); setDebug('event: recognition started'); hardTimer=setTimeout(function(){ if(isListening){ setDebug('event: hard timeout'); finishWithText(heardFinal||heardInterim,true); } },MAX_LISTEN_MS); };
+  recognition.onresult=function(ev){ var interim=''; for(var i=ev.resultIndex;i<ev.results.length;i++){ var txt=ev.results[i][0].transcript; if(ev.results[i].isFinal) heardFinal += (heardFinal?' ':'') + txt; else interim += txt; } heardInterim=interim; lastAnyResultAt=Date.now(); var shown=(heardFinal+' '+heardInterim).trim(); $('result').textContent = shown ? ('認識中: '+shown) : ''; clearSilenceAutoStopTimer(); if(softEndTimer) clearTimeout(softEndTimer); softEndTimer=setTimeout(function(){ if(isListening && hasHeardText()){ setDebug('event: soft end after interim'); stopRec(); } },SOFT_END_AFTER_INTERIM_MS); };
+  recognition.onerror=function(e){ setStatus('Mic error: '+(e.error||'unknown'),'err'); setDebug('event: error '+(e.error||'')); returnToParent({type:'MIC_ERROR',error:e.error||'unknown',target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); cleanupRecognition(); };
+  recognition.onend=function(){ if(isListening){ finishWithText(heardFinal||heardInterim,false); } };
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){ startMeter(stream); recognition.start(); }).catch(function(err){ setStatus('マイクを利用できません: '+(err&&err.message?err.message:err),'err'); setDebug('event: getUserMedia failed'); returnToParent({type:'MIC_ERROR',error:String(err&&err.message?err.message:err),target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); }); }
+
+function speakText(text){ text=String(text||'').trim(); if(!text) return; try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.95; speechSynthesis.speak(u); }catch(e){} }
+function speakRole(r){ postToParent({type:'MIC_SPEAK_ROLE',role:r,target:sentence,token:token,ts:Date.now()}); if((r||'')===role) speakText(sentence); }
+function sendPrev(){ postToParent({type:'MIC_PREV',role:role,target:sentence,token:token,ts:Date.now()}); }
+function sendNext(){ postToParent({type:'MIC_NEXT',role:role,target:sentence,token:token,ts:Date.now()}); }
+function resetView(){ cleanupRecognition(); heardFinal=''; heardInterim=''; $('result').textContent=''; setStatus('Startを押して話してください',''); setDebug('event: reset'); }
+function applyTargetPayload(d){ d=d||{}; sentence=String(d.sentence||d.target||sentence||''); role=String(d.role||role||'B'); scriptPreview=String(d.script||scriptPreview||''); if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); } $('roleBadge').textContent='role: '+role; renderSentence(); renderScriptPreview(); setStatus('Startを押して話してください',''); setDebug('event: target updated'); if(d.relatedImage || d.relatedImageDataUrl || d.dataUrl){ setRelatedImage(d.relatedImage||d.relatedImageDataUrl||d.dataUrl, d.relatedImageTitle||d.title||''); } }
+
+window.addEventListener('message',function(e){ var d=e.data||{}; if(!d || !d.type) return; if(d.type==='SET_TARGET' || d.type==='MIC_SET_TARGET'){ applyTargetPayload(d); return; } if(d.type==='SET_RELATED_IMAGE' || d.type==='MIC_RELATED_IMAGE' || d.type==='WPM_RELATED_IMAGE'){ setRelatedImage(d.dataUrl||d.data||d.relatedImage||'', d.title||d.relatedImageTitle||''); return; } if(d.type==='CLEAR_RELATED_IMAGE'){ setRelatedImage('',''); return; } });
+
+function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; }catch(e){ ipaMode=0; } $('roleBadge').textContent='role: '+role; updateModeBadge(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
+init();
 </script>
 </body>
 </html>
