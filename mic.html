@@ -142,7 +142,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_0319_related_image_popup_full'; })();
+(function(){ window.__micPageBuild = 'mic_html_03192_related_image_popup_bundle_full'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -155,8 +155,11 @@ var token = params.get('token') || 'wpm_mic_result_latest';
 var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only
 var receivedIpa = params.get('ipa') || '';
 var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
+// relatedImage URL parameter is fallback only. Main path is postMessage because data URLs can exceed URL length limits.
 var relatedImageDataUrl = params.get('relatedImage') || '';
 var relatedImageTitle = params.get('relatedImageTitle') || '';
+var relatedImageLibraryId = params.get('relatedImageLibraryId') || '';
+var relatedImageUserCollapsed = false;
 var ipaCache = {};
 var recognition = null, isListening = false, heardFinal = '', heardInterim = '', lastAnyResultAt = 0;
 var hardTimer = null, noSpeechTimer = null, softEndTimer = null, silenceAutoStopTimer = null;
@@ -196,8 +199,36 @@ function postToParent(payload){ try{ if(window.opener && !window.opener.closed) 
 function saveMobileResult(payload){ try{ localStorage.setItem(token,JSON.stringify(payload)); }catch(e){} }
 function returnToParent(payload){ if(mode==='mobile' && returnUrl){ saveMobileResult(payload); setStatus('✅ 完了。元の画面へ戻ります...','done'); setTimeout(function(){ location.href=returnUrl+(returnUrl.indexOf('?')>=0?'&':'?')+'wpmMicReturn=1&token='+encodeURIComponent(token); },700); return; } postToParent(payload); }
 
-function setRelatedImage(dataUrl, title){ relatedImageDataUrl=String(dataUrl||''); relatedImageTitle=String(title||''); var box=$('relatedImageBox'), img=$('relatedImageImg'), titleEl=$('relatedImageTitle'), meta=$('relatedImageMeta'); if(!box||!img) return; if(!relatedImageDataUrl){ box.classList.add('hidden'); img.removeAttribute('src'); return; } img.src=relatedImageDataUrl; if(titleEl) titleEl.textContent=relatedImageTitle ? '｜'+relatedImageTitle : ''; if(meta) meta.textContent=(relatedImageTitle?('「'+relatedImageTitle+'」の関連画像。'):'このテキストの関連画像。')+'タップで拡大できます。'; box.classList.remove('hidden'); $('relatedImageBody').classList.remove('hidden'); $('relatedImageToggleBtn').textContent='閉じる'; }
-function toggleRelatedImage(){ var body=$('relatedImageBody'), btn=$('relatedImageToggleBtn'); if(!body) return; var hide=!body.classList.contains('hidden'); body.classList.toggle('hidden',hide); if(btn) btn.textContent=hide?'表示':'閉じる'; }
+function clearRelatedImage(){
+  relatedImageDataUrl=''; relatedImageTitle=''; relatedImageLibraryId='';
+  var box=$('relatedImageBox'), img=$('relatedImageImg');
+  if(box) box.classList.add('hidden');
+  if(img) img.removeAttribute('src');
+  setDebug('event: image cleared');
+}
+function setRelatedImage(dataUrl, title, libraryId){
+  var nextData=String(dataUrl||'');
+  var nextTitle=String(title||'');
+  var nextLibraryId=String(libraryId||'');
+  var box=$('relatedImageBox'), img=$('relatedImageImg'), titleEl=$('relatedImageTitle'), meta=$('relatedImageMeta'), body=$('relatedImageBody'), btn=$('relatedImageToggleBtn');
+  if(!box||!img) return;
+  if(!nextData){ clearRelatedImage(); return; }
+  var libraryChanged = nextLibraryId && nextLibraryId !== relatedImageLibraryId;
+  relatedImageDataUrl=nextData;
+  relatedImageTitle=nextTitle;
+  relatedImageLibraryId=nextLibraryId || relatedImageLibraryId;
+  img.src=relatedImageDataUrl;
+  if(titleEl) titleEl.textContent=relatedImageTitle ? '｜'+relatedImageTitle : '';
+  if(meta) meta.textContent=(relatedImageTitle?('「'+relatedImageTitle+'」の関連画像。'):'このテキストの関連画像。')+'タップで拡大できます。';
+  box.classList.remove('hidden');
+  // First image or different library: open. Same image resend: preserve user's collapsed state.
+  if(body){
+    if(libraryChanged || !relatedImageUserCollapsed){ body.classList.remove('hidden'); if(btn) btn.textContent='閉じる'; }
+    else { body.classList.add('hidden'); if(btn) btn.textContent='表示'; }
+  }
+  setDebug('event: image received len=' + relatedImageDataUrl.length);
+}
+function toggleRelatedImage(){ var body=$('relatedImageBody'), btn=$('relatedImageToggleBtn'); if(!body) return; var hide=!body.classList.contains('hidden'); relatedImageUserCollapsed=hide; body.classList.toggle('hidden',hide); if(btn) btn.textContent=hide?'表示':'閉じる'; }
 function openRelatedImageLarge(){ if(!relatedImageDataUrl) return; var w=window.open('','_blank'); if(!w) return; w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>関連画像</title><style>body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;box-sizing:border-box;}img{max-width:100%;max-height:96vh;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.35);}</style></head><body><img src="'+relatedImageDataUrl.replace(/"/g,'&quot;')+'"></body></html>'); w.document.close(); }
 
 function cleanupTimers(){ [hardTimer,noSpeechTimer,softEndTimer,silenceAutoStopTimer].forEach(function(t){ if(t) clearTimeout(t); }); hardTimer=noSpeechTimer=softEndTimer=silenceAutoStopTimer=null; }
@@ -219,9 +250,30 @@ function speakRole(r){ postToParent({type:'MIC_SPEAK_ROLE',role:r,target:sentenc
 function sendPrev(){ postToParent({type:'MIC_PREV',role:role,target:sentence,token:token,ts:Date.now()}); }
 function sendNext(){ postToParent({type:'MIC_NEXT',role:role,target:sentence,token:token,ts:Date.now()}); }
 function resetView(){ cleanupRecognition(); heardFinal=''; heardInterim=''; $('result').textContent=''; setStatus('Startを押して話してください',''); setDebug('event: reset'); }
-function applyTargetPayload(d){ d=d||{}; sentence=String(d.sentence||d.target||sentence||''); role=String(d.role||role||'B'); scriptPreview=String(d.script||scriptPreview||''); if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); } $('roleBadge').textContent='role: '+role; renderSentence(); renderScriptPreview(); setStatus('Startを押して話してください',''); setDebug('event: target updated'); if(d.relatedImage || d.relatedImageDataUrl || d.dataUrl){ setRelatedImage(d.relatedImage||d.relatedImageDataUrl||d.dataUrl, d.relatedImageTitle||d.title||''); } }
+function applyTargetPayload(d){
+  d=d||{};
+  sentence=String(d.sentence||d.target||sentence||'');
+  role=String(d.role||role||'B');
+  scriptPreview=String(d.script||scriptPreview||'');
+  if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); }
+  $('roleBadge').textContent='role: '+role;
+  renderSentence(); renderScriptPreview(); setStatus('Startを押して話してください',''); setDebug('event: target updated');
+  if(d.relatedImage || d.relatedImageDataUrl || d.dataUrl){
+    setRelatedImage(d.relatedImage||d.relatedImageDataUrl||d.dataUrl, d.relatedImageTitle||d.title||'', d.libraryId||d.relatedImageLibraryId||'');
+  }else{
+    // Prevent stale image from previous phrase while new image is loading.
+    clearRelatedImage();
+  }
+}
 
-window.addEventListener('message',function(e){ var d=e.data||{}; if(!d || !d.type) return; if(d.type==='SET_TARGET' || d.type==='MIC_SET_TARGET'){ applyTargetPayload(d); return; } if(d.type==='SET_RELATED_IMAGE' || d.type==='MIC_RELATED_IMAGE' || d.type==='WPM_RELATED_IMAGE'){ setRelatedImage(d.dataUrl||d.data||d.relatedImage||'', d.title||d.relatedImageTitle||''); return; } if(d.type==='CLEAR_RELATED_IMAGE'){ setRelatedImage('',''); return; } });
+window.addEventListener('message',function(e){
+  var d=e.data||{}; if(!d || !d.type) return;
+  if(d.type==='SET_TARGET' || d.type==='MIC_SET_TARGET'){ applyTargetPayload(d); return; }
+  if(d.type==='SET_RELATED_IMAGE' || d.type==='MIC_RELATED_IMAGE' || d.type==='WPM_RELATED_IMAGE'){
+    setRelatedImage(d.dataUrl||d.data||d.relatedImage||'', d.title||d.relatedImageTitle||'', d.libraryId||d.relatedImageLibraryId||''); return;
+  }
+  if(d.type==='CLEAR_RELATED_IMAGE'){ clearRelatedImage(); return; }
+});
 
 function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; }catch(e){ ipaMode=0; } $('roleBadge').textContent='role: '+role; updateModeBadge(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
