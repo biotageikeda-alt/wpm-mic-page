@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Mic Recognition - Image First / Phrase Under Image / IPA Big</title>
+  <title>Mic Recognition - No Image / IPA Focus</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body{
@@ -14,12 +14,12 @@
       box-sizing:border-box;
     }
     .label{color:#93c5fd;font-size:14px;margin-bottom:8px;font-weight:800;letter-spacing:.04em;}
-    .sentence{background:#334155;color:#fff;border-radius:10px;padding:15px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;}
+    .sentence{background:#334155;color:#fff;border-radius:12px;padding:16px 18px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;border:1px solid rgba(147,197,253,.18);box-shadow:0 6px 18px rgba(0,0,0,.12);}
     .sentenceText{display:block;}
-    .ipaLine{margin-top:10px;color:#bfdbfe;font-size:15px;line-height:1.45;font-weight:700;opacity:.96;word-break:break-word;}
-    .sentence.ipaBigMode{padding:16px 15px;}
-    .ipaBigLine{color:#fde68a;font-size:25px;line-height:1.38;font-weight:950;letter-spacing:.01em;word-break:break-word;}
-    .ipaBigSubLine{margin-top:10px;color:#cbd5e1;font-size:13px;line-height:1.45;font-weight:700;opacity:.78;word-break:break-word;}
+    .ipaLine{margin-top:10px;color:#fde68a;font-size:25px;line-height:1.42;font-weight:950;opacity:1;word-break:break-word;letter-spacing:.01em;text-shadow:0 1px 0 rgba(0,0,0,.18);}
+    .sentence.ipaBigMode{padding:16px 18px;background:#334155;border-color:rgba(253,230,138,.30);}
+    .ipaBigLine{color:#fde68a;font-size:26px;line-height:1.42;font-weight:950;letter-spacing:.01em;word-break:break-word;text-shadow:0 1px 0 rgba(0,0,0,.20);}
+    .ipaBigSubLine{margin-top:10px;color:#dbeafe;font-size:13px;line-height:1.45;font-weight:750;opacity:.72;word-break:break-word;}
     .badges{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 10px;}
     .badge{border:1px solid rgba(255,255,255,.20);background:#334155;color:#dbeafe;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;}
     .badge.ok{background:#dcfce7;color:#166534;border-color:#86efac;}
@@ -94,6 +94,10 @@
       cursor:pointer;
     }
     .relatedImageMeta{margin-top:6px;color:#cbd5e1;font-size:11px;line-height:1.4;}
+
+    /* Phase 3.3.6: MIC popupでは関連画像を一時的に完全非表示 */
+    #relatedImageBox,.relatedImageBox{display:none!important;}
+    #ipaBigBtn{display:none!important;}
   </style>
 </head>
 <body>
@@ -129,7 +133,6 @@
 
   <div class="controls subBtns">
     <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
-    <button id="ipaBigBtn" class="purple" onclick="toggleIPABig()">IPA大</button>
     <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
     <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
     <button class="gray" onclick="sendPrev()">◀ Prev</button>
@@ -156,7 +159,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_phase3_3_5_user_role_target_fixed'; })();
+(function(){ window.__micPageBuild = 'mic_html_phase3_3_6_no_related_image_ipa_focus'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -169,8 +172,8 @@ var scriptPreview = params.get('script') || '';
 var returnUrl = params.get('return') || '';
 var mode = params.get('mode') || 'popup';
 var token = params.get('token') || 'wpm_mic_result_latest';
-var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only, 3 = IPA big + English small
-var IPA_MODE_ORDER = [0, 3, 2, 1];
+var ipaMode = 0; // 0 = 英+IPA（IPA大・英小）, 1 = English only, 2 = IPA only
+var IPA_MODE_ORDER = [0, 2, 1];
 var scriptDisplayMode = 'both'; // role / A / B / both. Default: always show A+B in popup.
 var receivedIpa = params.get('ipa') || '';
 var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
@@ -211,8 +214,7 @@ function isReceivedIpaForCurrentSentence(text){ return !!receivedIpa && !!receiv
 function sentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; return isReceivedIpaForCurrentSentence(text) ? String(receivedIpa).trim() : fallbackSentenceToIPA(text); }
 function getIpaModeLabel(){
   if(ipaMode===0) return '英+IPA';
-  if(ipaMode===3) return 'IPA大';
-  if(ipaMode===2) return 'IPA only';
+  if(ipaMode===2) return 'IPAのみ';
   if(ipaMode===1) return 'English';
   return '英+IPA';
 }
@@ -221,23 +223,29 @@ function renderSentence(){
   if(!el) return;
   var en=sentence||'(no sentence)';
   var ipa=sentenceToIPA(sentence);
-  el.classList.toggle('ipaBigMode', ipaMode===3);
+
+  // Phase 3.3.6:
+  // 英+IPAでは、発音練習の視認性を優先し「IPA大・英語小」で表示する。
+  // 紫のIPA大ボタンは廃止し、黄色の英+IPAボタンだけで表示モードを切り替える。
+  el.classList.toggle('ipaBigMode', ipaMode===0 || ipaMode===2);
+
   if(ipaMode===0){
-    el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span><div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
-  } else if(ipaMode===3){
     el.innerHTML='<div class="ipaBigLine">'+escapeHtml(ipa||'(IPA not available)')+'</div><div class="ipaBigSubLine">'+escapeHtml(en)+'</div>';
   } else if(ipaMode===2){
-    el.innerHTML='<div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
+    el.innerHTML='<div class="ipaBigLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
   } else {
     el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span>';
   }
+
   var btn=$('ipaBtn');
-  if(btn) btn.textContent=getIpaModeLabel();
-  var bigBtn=$('ipaBigBtn');
-  if(bigBtn) bigBtn.classList.toggle('active', ipaMode===3);
+  if(btn){
+    btn.textContent=getIpaModeLabel();
+    btn.classList.toggle('active', ipaMode!==1);
+  }
 }
 function toggleIPABig(){
-  ipaMode = (Number(ipaMode)===3) ? 0 : 3;
+  // Phase 3.3.6: IPA大ボタンは廃止。互換用に英+IPAへ戻すだけにする。
+  ipaMode = 0;
   renderSentence();
   try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){}
   postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
@@ -315,26 +323,13 @@ function clearRelatedImage(){
   setDebug('event: image cleared');
 }
 function setRelatedImage(dataUrl, title, libraryId){
-  var nextData=String(dataUrl||'');
-  var nextTitle=String(title||'');
-  var nextLibraryId=String(libraryId||'');
-  var box=$('relatedImageBox'), img=$('relatedImageImg'), titleEl=$('relatedImageTitle'), meta=$('relatedImageMeta'), body=$('relatedImageBody'), btn=$('relatedImageToggleBtn');
-  if(!box||!img) return;
-  if(!nextData){ clearRelatedImage(); return; }
-  var libraryChanged = nextLibraryId && nextLibraryId !== relatedImageLibraryId;
-  relatedImageDataUrl=nextData;
-  relatedImageTitle=nextTitle;
-  relatedImageLibraryId=nextLibraryId || relatedImageLibraryId;
-  img.src=relatedImageDataUrl;
-  if(titleEl) titleEl.textContent=relatedImageTitle ? '｜'+relatedImageTitle : '';
-  if(meta) meta.textContent=(relatedImageTitle?('「'+relatedImageTitle+'」の関連画像。'):'このテキストの関連画像。')+'タップで拡大できます。';
-  box.classList.remove('hidden');
-  // First image or different library: open. Same image resend: preserve user's collapsed state.
-  if(body){
-    if(libraryChanged || !relatedImageUserCollapsed){ body.classList.remove('hidden'); if(btn) btn.textContent='閉じる'; }
-    else { body.classList.add('hidden'); if(btn) btn.textContent='表示'; }
-  }
-  setDebug('event: image received len=' + relatedImageDataUrl.length);
+  // Phase 3.3.6: MICポップアップ内の関連画像表示はいったん停止。
+  // 親アプリから画像が送られてもTarget sentenceの視認性を優先して表示しない。
+  relatedImageDataUrl=''; relatedImageTitle=''; relatedImageLibraryId='';
+  var box=$('relatedImageBox'), img=$('relatedImageImg');
+  if(box) box.classList.add('hidden');
+  if(img) img.removeAttribute('src');
+  return;
 }
 function toggleRelatedImage(){ var body=$('relatedImageBody'), btn=$('relatedImageToggleBtn'); if(!body) return; var hide=!body.classList.contains('hidden'); relatedImageUserCollapsed=hide; body.classList.toggle('hidden',hide); if(btn) btn.textContent=hide?'表示':'閉じる'; }
 function openRelatedImageLarge(){ if(!relatedImageDataUrl) return; var w=window.open('','_blank'); if(!w) return; w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>関連画像</title><style>body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;box-sizing:border-box;}img{max-width:100%;max-height:96vh;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.35);}</style></head><body><img src="'+relatedImageDataUrl.replace(/"/g,'&quot;')+'"></body></html>'); w.document.close(); }
@@ -407,7 +402,7 @@ window.addEventListener('message',function(e){
   if(d.type==='CLEAR_RELATED_IMAGE'){ clearRelatedImage(); return; }
 });
 
-function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='both'; role=userRole; $('roleBadge').textContent='role: '+userRole+' (you)'; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,userRole:userRole,aiRole:(userRole==='A'?'B':'A'),target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
+function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(ipaMode===3) ipaMode=0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='both'; role=userRole; $('roleBadge').textContent='role: '+userRole+' (you)'; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,userRole:userRole,aiRole:(userRole==='A'?'B':'A'),target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
 
 </script>
