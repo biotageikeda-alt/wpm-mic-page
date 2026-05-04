@@ -390,7 +390,8 @@ window.addEventListener('message',function(e){
 
 function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='role'; $('roleBadge').textContent='role: '+role; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
-
+</script>
+  
   <!-- ================================================================
 Phase 3.3.2 GitHub mic.html patch
 AI Talk popup: A+B固定表示ロック + Target sentence IPA表示ボタン分離
