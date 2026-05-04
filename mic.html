@@ -156,12 +156,15 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_03202_image_first_phrase_under_image_ipa_big_full'; })();
+(function(){ window.__micPageBuild = 'mic_html_phase3_3_5_user_role_target_fixed'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
 var parentOrigin = params.get('origin') || 'https://script.google.com';
 var role = params.get('role') || 'B';
+var userRole = (params.get('userRole') || role || 'B').toUpperCase();
+if(userRole !== 'A' && userRole !== 'B') userRole = 'B';
+role = userRole; // MIC_RESULT返送用ロールは常に自分の担当に固定
 var scriptPreview = params.get('script') || '';
 var returnUrl = params.get('return') || '';
 var mode = params.get('mode') || 'popup';
@@ -355,19 +358,42 @@ function speakRole(r){ postToParent({type:'MIC_SPEAK_ROLE',role:r,target:sentenc
 function sendPrev(){ postToParent({type:'MIC_PREV',role:role,target:sentence,token:token,ts:Date.now()}); }
 function sendNext(){ postToParent({type:'MIC_NEXT',role:role,target:sentence,token:token,ts:Date.now()}); }
 function resetView(){ cleanupRecognition(); heardFinal=''; heardInterim=''; $('result').textContent=''; setStatus('Startを押して話してください',''); setDebug('event: reset'); }
+function normalizeRoleMic335_(v){
+  v = String(v || '').toUpperCase();
+  return (v === 'A' || v === 'B') ? v : '';
+}
 function applyTargetPayload(d){
   d=d||{};
-  sentence=String(d.sentence||d.target||sentence||'');
-  role=String(d.role||role||'B');
+
+  var incomingRole = normalizeRoleMic335_(d.role || d.targetRole || d.currentRole || '');
+  var nextUserRole = normalizeRoleMic335_(d.userRole || d.youRole || d.humanRole || '');
+  if(nextUserRole) userRole = nextUserRole;
+
+  // MIC_RESULT返送用のroleは、常に自分の担当ロールに固定する。
+  role = userRole;
   scriptDisplayMode='both';
-  scriptPreview=String(d.script||scriptPreview||'');
-  if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); }
-  $('roleBadge').textContent='role: '+role;
-  renderSentence(); renderScriptPreview(); setStatus('Startを押して話してください',''); setDebug('event: target updated');
+
+  // Script previewはA+B全体表示のため、どのロールのSET_TARGETでも更新する。
+  scriptPreview=String(d.script||d.scriptPreview||d.preview||scriptPreview||'');
+
+  // Target sentenceは、自分の担当ロールのフレーズだけ更新する。
+  // incomingRoleが空の場合は旧payload互換として更新を許可する。
+  var shouldUpdateSentence = (!incomingRole || incomingRole === userRole);
+  if(shouldUpdateSentence){
+    sentence=String(d.sentence||d.text||d.target||sentence||'');
+    if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); }
+  }
+
+  $('roleBadge').textContent='role: '+userRole+' (you)';
+  renderSentence();
+  renderScriptPreview();
+  setStatus('Startを押して話してください','');
+  setDebug('event: target updated / your='+userRole+' / incoming='+(incomingRole||'-')+(shouldUpdateSentence?' / sentence updated':' / sentence kept'));
+
   if(d.relatedImage || d.relatedImageDataUrl || d.dataUrl){
     setRelatedImage(d.relatedImage||d.relatedImageDataUrl||d.dataUrl, d.relatedImageTitle||d.title||'', d.libraryId||d.relatedImageLibraryId||'');
-  }else{
-    // Prevent stale image from previous phrase while new image is loading.
+  }else if(shouldUpdateSentence){
+    // 自分ロールの新ターゲットで画像が無い場合のみクリア。AI側受信で画像を消さない。
     clearRelatedImage();
   }
 }
@@ -381,7 +407,7 @@ window.addEventListener('message',function(e){
   if(d.type==='CLEAR_RELATED_IMAGE'){ clearRelatedImage(); return; }
 });
 
-function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='both'; $('roleBadge').textContent='role: '+role; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
+function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='both'; role=userRole; $('roleBadge').textContent='role: '+userRole+' (you)'; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,userRole:userRole,aiRole:(userRole==='A'?'B':'A'),target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
 
 </script>
