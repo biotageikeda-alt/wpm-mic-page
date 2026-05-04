@@ -390,6 +390,216 @@ window.addEventListener('message',function(e){
 
 function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='role'; $('roleBadge').textContent='role: '+role; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
+
+  <!-- ================================================================
+Phase 3.3.2 GitHub mic.html patch
+AI Talk popup: A+B固定表示ロック + Target sentence IPA表示ボタン分離
+貼り付け先: GitHub Pages の AI Talk用 mic.html
+注意: speaking_mic.html ではなく、AI Talk用 mic.html です。
+=============================================================== -->
+
+<!-- 1) <style> の一番末尾、</style> 直前に追加 -->
+<style>
+/* ===== Phase 3.3.2: AI Talk popup script preview A+B lock ===== */
+#scriptRoleFilterBtn,
+#roleFilterBtn,
+#previewRoleFilterBtn,
+#scriptDisplayModeBtn,
+#scriptModeBtn,
+.role-filter-btn,
+.script-filter-btn,
+.script-display-toggle,
+.preview-role-filter-btn {
+  display: none !important;
+}
+
+/* ===== Phase 3.3.2: Target sentence IPA display / size separation ===== */
+#targetBox,
+#targetSentenceBox,
+.targetBox,
+.target-card {
+  transition: all .2s ease !important;
+}
+
+.target-display-both .target-en,
+.target-display-both #targetText,
+.target-display-both .sentenceText {
+  display:block !important;
+  font-size:21px !important;
+  font-weight:900 !important;
+  line-height:1.5 !important;
+  color:#fff !important;
+}
+.target-display-both .target-ipa,
+.target-display-both #targetIpa,
+.target-display-both .ipaLine {
+  display:block !important;
+  font-size:14px !important;
+  font-weight:800 !important;
+  line-height:1.6 !important;
+  color:#cbd5e1 !important;
+  margin-top:8px !important;
+}
+.target-display-both.target-ipa-large .target-ipa,
+.target-display-both.target-ipa-large #targetIpa,
+.target-display-both.target-ipa-large .ipaLine {
+  display:block !important;
+  font-size:26px !important;
+  font-weight:1000 !important;
+  line-height:1.45 !important;
+  color:#fde68a !important;
+  margin-bottom:8px !important;
+  letter-spacing:.01em !important;
+}
+.target-display-both.target-ipa-large .target-en,
+.target-display-both.target-ipa-large #targetText,
+.target-display-both.target-ipa-large .sentenceText {
+  display:block !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+  line-height:1.35 !important;
+  color:rgba(255,255,255,.58) !important;
+}
+.target-display-ipa .target-en,
+.target-display-ipa #targetText,
+.target-display-ipa .sentenceText {
+  display:none !important;
+}
+.target-display-ipa .target-ipa,
+.target-display-ipa #targetIpa,
+.target-display-ipa .ipaLine {
+  display:block !important;
+  font-size:26px !important;
+  font-weight:1000 !important;
+  line-height:1.45 !important;
+  color:#fde68a !important;
+}
+.target-display-text .target-ipa,
+.target-display-text #targetIpa,
+.target-display-text .ipaLine {
+  display:none !important;
+}
+</style>
+
+<!-- 2) <script> の後半に追加。既存関数の後ろでOK -->
+<script>
+(function(){
+  'use strict';
+  if(window.__micPhase332Loaded) return;
+  window.__micPhase332Loaded = true;
+
+  window.micTargetDisplayMode = window.micTargetDisplayMode || 'both'; // both / ipa / text
+  window.micTargetIpaLarge = (typeof window.micTargetIpaLarge === 'boolean') ? window.micTargetIpaLarge : false;
+  window.micScriptDisplayMode = 'both';
+
+  function $(id){ return document.getElementById(id); }
+
+  function getMicTargetBox(){
+    return $('targetBox') || $('targetSentenceBox') || document.querySelector('.targetBox') || document.querySelector('.target-card');
+  }
+  function getMicDisplayModeBtn(){
+    return $('ipaModeBtn') || $('ipaDisplayModeBtn') || $('abIpaDisplayModeBtn') || $('targetIpaModeBtn') || document.querySelector('[data-role="ipa-display-mode"]');
+  }
+  function getMicIpaLargeBtn(){
+    return $('ipaBigBtn') || $('ipaSizeBtn') || $('ipaSizeSwapBtn') || $('abIpaSizeSwapBtn') || $('targetIpaLargeBtn') || document.querySelector('[data-role="ipa-large-toggle"]');
+  }
+
+  function applyMicTargetIpaDisplay(){
+    var box = getMicTargetBox();
+    if(box){
+      box.classList.remove('target-display-both','target-display-ipa','target-display-text','target-ipa-large');
+      if(window.micTargetDisplayMode === 'ipa') box.classList.add('target-display-ipa');
+      else if(window.micTargetDisplayMode === 'text') box.classList.add('target-display-text');
+      else box.classList.add('target-display-both');
+      if(window.micTargetIpaLarge) box.classList.add('target-ipa-large');
+    }
+    updateMicTargetIpaButtons();
+  }
+
+  function updateMicTargetIpaButtons(){
+    var modeBtn = getMicDisplayModeBtn();
+    if(modeBtn){
+      if(window.micTargetDisplayMode === 'both') modeBtn.textContent = '英+IPA';
+      else if(window.micTargetDisplayMode === 'ipa') modeBtn.textContent = 'IPAのみ';
+      else modeBtn.textContent = '英語のみ';
+      modeBtn.dataset.mode = window.micTargetDisplayMode;
+      modeBtn.classList.toggle('active', window.micTargetDisplayMode !== 'text');
+    }
+    var largeBtn = getMicIpaLargeBtn();
+    if(largeBtn){
+      largeBtn.textContent = window.micTargetIpaLarge ? 'IPA大: ON' : 'IPA大: OFF';
+      largeBtn.dataset.on = window.micTargetIpaLarge ? '1' : '0';
+      largeBtn.classList.toggle('active', !!window.micTargetIpaLarge);
+    }
+  }
+
+  function toggleMicTargetDisplayMode(){
+    if(window.micTargetDisplayMode === 'both') window.micTargetDisplayMode = 'ipa';
+    else if(window.micTargetDisplayMode === 'ipa') window.micTargetDisplayMode = 'text';
+    else window.micTargetDisplayMode = 'both';
+    applyMicTargetIpaDisplay();
+  }
+  function toggleMicTargetIpaLarge(){
+    window.micTargetIpaLarge = !window.micTargetIpaLarge;
+    applyMicTargetIpaDisplay();
+  }
+  function bindMicTargetIpaButtons(){
+    var modeBtn = getMicDisplayModeBtn();
+    if(modeBtn && modeBtn.dataset.boundMicTargetMode !== '1'){
+      modeBtn.dataset.boundMicTargetMode = '1';
+      modeBtn.addEventListener('click', function(e){ e.preventDefault(); toggleMicTargetDisplayMode(); }, true);
+    }
+    var largeBtn = getMicIpaLargeBtn();
+    if(largeBtn && largeBtn.dataset.boundMicTargetLarge !== '1'){
+      largeBtn.dataset.boundMicTargetLarge = '1';
+      largeBtn.addEventListener('click', function(e){ e.preventDefault(); toggleMicTargetIpaLarge(); }, true);
+    }
+    applyMicTargetIpaDisplay();
+  }
+
+  function forceMicScriptBoth(){
+    window.micScriptDisplayMode = 'both';
+    ['scriptRoleFilterBtn','roleFilterBtn','previewRoleFilterBtn','scriptDisplayModeBtn','scriptModeBtn'].forEach(function(id){
+      var btn = $(id);
+      if(btn){ btn.textContent = '表示: A+B'; btn.dataset.mode = 'both'; btn.dataset.role = 'both'; }
+    });
+  }
+  function renderLockLater(){
+    setTimeout(function(){ forceMicScriptBoth(); applyMicTargetIpaDisplay(); }, 80);
+    setTimeout(function(){ forceMicScriptBoth(); applyMicTargetIpaDisplay(); }, 300);
+  }
+  function bindMicPopupLockButtons(){
+    ['speakABtn','speakBBtn','nextBtn','prevBtn','startBtn','stopBtn','ipaModeBtn','ipaBigBtn','ipaDisplayModeBtn','ipaSizeBtn','abIpaDisplayModeBtn','abIpaSizeSwapBtn'].forEach(function(id){
+      var el = $(id);
+      if(!el || el.dataset.mic332Bound === '1') return;
+      el.dataset.mic332Bound = '1';
+      el.addEventListener('click', renderLockLater, true);
+    });
+  }
+
+  // SET_TARGET後に表示クラスとボタンラベルを再適用する。
+  window.addEventListener('message', function(e){
+    var d = e && e.data ? e.data : {};
+    if(d && (d.type === 'SET_TARGET' || d.type === 'MIC_INIT')){
+      setTimeout(function(){ forceMicScriptBoth(); bindMicTargetIpaButtons(); bindMicPopupLockButtons(); applyMicTargetIpaDisplay(); }, 50);
+      setTimeout(function(){ forceMicScriptBoth(); applyMicTargetIpaDisplay(); }, 300);
+    }
+  }, true);
+
+  function init(){
+    forceMicScriptBoth();
+    bindMicTargetIpaButtons();
+    bindMicPopupLockButtons();
+    applyMicTargetIpaDisplay();
+    setTimeout(bindMicTargetIpaButtons, 1000);
+    setTimeout(bindMicPopupLockButtons, 1000);
+    setTimeout(bindMicTargetIpaButtons, 3000);
+    setTimeout(bindMicPopupLockButtons, 3000);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+  
 </script>
 </body>
 </html>
