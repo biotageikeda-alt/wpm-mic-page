@@ -1,335 +1,395 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Speaking MIC</title>
+  <meta charset="UTF-8">
+  <title>Mic Recognition - Image First / Phrase Under Image / IPA Big</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    :root{--blue:#2563eb;--rose:#e11d48;--green:#059669;--amber:#d97706;--slate:#334155;}
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a;}
-    .wrap{max-width:520px;margin:0 auto;min-height:100vh;padding:14px;display:flex;flex-direction:column;gap:12px;}
-    .card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:14px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-    .head{display:flex;align-items:center;gap:8px}.title{font-weight:900;color:#1d4ed8}.pill{font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;margin-left:auto}
-    .topic{font-size:14px;line-height:1.55;font-weight:800;color:#334155;background:#f1f5f9;border-radius:12px;padding:10px;white-space:pre-wrap}
-    .timer{font-size:48px;line-height:1;font-weight:1000;letter-spacing:-.04em;text-align:center;color:#e11d48;margin:10px 0 4px}.timer small{font-size:14px;color:#64748b;font-weight:800;letter-spacing:0}
-    .bar{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}.bar>div{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#2563eb);transition:width .2s}
-    .status{font-size:12px;color:#475569;font-weight:800;text-align:center;min-height:22px}.status.warn{color:#b45309}.status.err{color:#b91c1c}.status.ok{color:#047857}
-    textarea{width:100%;min-height:190px;border:1px solid #cbd5e1;border-radius:14px;padding:12px;font-size:15px;line-height:1.55;outline:none;resize:vertical;background:#fff} textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.25)}
-    .btns{display:flex;flex-wrap:wrap;gap:8px}.btn{border:0;border-radius:12px;padding:10px 13px;font-size:13px;font-weight:900;cursor:pointer;min-height:42px;transition:transform .05s,opacity .2s}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.45;cursor:not-allowed}.primary{background:#2563eb;color:white}.danger{background:#e11d48;color:white}.soft{background:#e2e8f0;color:#334155}.green{background:#059669;color:white}.amber{background:#f59e0b;color:#78350f}.purple{background:#7c3aed;color:white}.grow{flex:1}
-    .hint{font-size:12px;line-height:1.5;color:#64748b}.live{display:flex;align-items:center;gap:6px;justify-content:center}.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8}.dot.on{background:#ef4444;animation:pulse 1s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%{box-shadow:0 0 0 10px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
-    .mini{font-size:11px;color:#94a3b8;text-align:center}.hidden{display:none!important}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#1e293b;
+      color:#e5e7eb;
+      padding:24px 18px;
+      box-sizing:border-box;
+    }
+    .label{color:#93c5fd;font-size:14px;margin-bottom:8px;font-weight:800;letter-spacing:.04em;}
+    .sentence{background:#334155;color:#fff;border-radius:10px;padding:15px;font-size:20px;line-height:1.45;font-weight:800;margin-bottom:12px;}
+    .sentenceText{display:block;}
+    .ipaLine{margin-top:10px;color:#bfdbfe;font-size:15px;line-height:1.45;font-weight:700;opacity:.96;word-break:break-word;}
+    .sentence.ipaBigMode{padding:16px 15px;}
+    .ipaBigLine{color:#fde68a;font-size:25px;line-height:1.38;font-weight:950;letter-spacing:.01em;word-break:break-word;}
+    .ipaBigSubLine{margin-top:10px;color:#cbd5e1;font-size:13px;line-height:1.45;font-weight:700;opacity:.78;word-break:break-word;}
+    .badges{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 10px;}
+    .badge{border:1px solid rgba(255,255,255,.20);background:#334155;color:#dbeafe;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;}
+    .badge.ok{background:#dcfce7;color:#166534;border-color:#86efac;}
+    .badge.warn{background:#fef3c7;color:#92400e;border-color:#fbbf24;}
+    .status{font-size:14px;color:#cbd5e1;margin:8px 0;min-height:20px;}
+    .status.listening{color:#fbbf24;}.status.done{color:#86efac;}.status.err{color:#fca5a5;}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
+    button{border:none;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:850;color:#fff;cursor:pointer;background:#3b82f6;min-width:100px;}
+    button:disabled{opacity:.45;cursor:not-allowed;background:#64748b;}
+    .stop{background:#64748b;}.yellow{background:#f59e0b;}.cyan{background:#0ea5e9;}.purple{background:#6d5dfc;}.gray{background:#475569;}
+    .wide{width:100%;background:#64748b;}
+    .subBtns button{min-width:auto;padding:8px 14px;font-size:13px;border-radius:999px;}
+    .subBtns button.active{box-shadow:0 0 0 2px rgba(255,255,255,.38) inset;filter:brightness(1.12);}
+    #ipaBigBtn.active{background:#7c3aed!important;color:#fff!important;}
+    .meterWrap{display:flex;align-items:center;gap:8px;margin-top:8px;color:#cbd5e1;font-weight:700;}
+    .meter{flex:1;height:10px;border-radius:999px;background:#334155;overflow:hidden;border:1px solid rgba(255,255,255,.15);}
+    .bar{height:100%;width:0%;background:#60a5fa;transition:width .12s linear;}
+    .result{margin-top:18px;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;font-size:17px;line-height:1.5;min-height:28px;}
+    .previewBox{margin-top:20px;}
+    .previewHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+    .previewTitle{color:#93c5fd;font-size:14px;font-weight:800;}
+    .scriptDisplayBtn{min-width:auto;padding:7px 12px;border-radius:999px;background:#334155;color:#dbeafe;border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:900;}
+    .scriptDisplayBtn.active{background:#7c3aed;color:#fff;border-color:#a78bfa;}
+    .previewText{background:#0f172a;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px;max-height:260px;overflow:auto;color:#dbeafe;}
+    .line{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:start;border-bottom:1px solid rgba(255,255,255,.08);padding:7px 0;}
+    .line.current{background:rgba(99,102,241,.20);border-left:3px solid #818cf8;border-radius:6px;padding-left:7px;}
+    .line.current .txt{color:#c7d2fe;font-weight:900;}.line:last-child{border-bottom:none;}
+    .tag{border-radius:999px;padding:3px 7px;font-size:12px;font-weight:900;text-align:center;}
+    .tagA{background:#dbeafe;color:#1d4ed8;}.tagB{background:#ffe4e6;color:#be123c;}.tagN{background:#334155;color:#cbd5e1;}
+    .txt{font-size:14px;line-height:1.55;color:#f8fafc;white-space:pre-wrap;word-break:break-word;}
+    .debug{margin-top:16px;color:#93c5fd;font-size:13px;word-break:break-word;}
+    .hidden{display:none!important;}
+
+    /* Phase 3.1.9 related image preview inside mic popup */
+    .relatedImageBox{
+      margin:10px 0 12px;
+      background:#0f172a;
+      border:1px solid rgba(147,197,253,.28);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
+    }
+    .relatedImageHead{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 10px;
+      background:#172554;
+      color:#bfdbfe;
+      font-size:12px;
+      font-weight:900;
+    }
+    .relatedImageHead .spacer{flex:1;}
+    .relatedImageHead button{
+      min-width:auto;
+      padding:5px 10px;
+      border-radius:999px;
+      font-size:11px;
+      background:#334155;
+      color:#dbeafe;
+      border:1px solid rgba(255,255,255,.18);
+    }
+    .relatedImageBody{padding:10px;background:#111827;}
+    .relatedImageImg{
+      display:block;
+      width:100%;
+      max-height:210px;
+      object-fit:contain;
+      background:#fff;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.14);
+      cursor:pointer;
+    }
+    .relatedImageMeta{margin-top:6px;color:#cbd5e1;font-size:11px;line-height:1.4;}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="head"><div class="title">🎙 Speaking MIC</div><div id="connPill" class="pill">standalone</div></div>
-      <p class="hint">GitHub Pages版MICです。音声認識だけを行い、結果を親のGASアプリへ返します。Claude補正は親アプリ側で行います。</p>
+  <!-- Phase 3.2.0.2: 関連画像を最上部、Target sentence/フレーズを画像の下に配置 -->
+  <div id="relatedImageBox" class="relatedImageBox hidden">
+    <div class="relatedImageHead">
+      <span>🖼 関連画像</span>
+      <span id="relatedImageTitle" style="opacity:.82;"></span>
+      <span class="spacer"></span>
+      <button id="relatedImageToggleBtn" type="button" onclick="toggleRelatedImage()">閉じる</button>
     </div>
-
-    <div class="card">
-      <div class="hint" style="font-weight:900;color:#64748b;margin-bottom:6px">Topic</div>
-      <div id="topicBox" class="topic">親アプリからお題を受信待ち...</div>
+    <div id="relatedImageBody" class="relatedImageBody">
+      <img id="relatedImageImg" class="relatedImageImg" alt="関連画像" onclick="openRelatedImageLarge()">
+      <div id="relatedImageMeta" class="relatedImageMeta">タップで拡大できます。</div>
     </div>
-
-    <div class="card">
-      <div class="timer"><span id="timerText">60</span><small>s</small></div>
-      <div class="bar"><div id="timerBar"></div></div>
-      <div class="live" style="margin-top:10px"><span id="liveDot" class="dot"></span><span id="statusText" class="status">Ready</span></div>
-      <div class="btns" style="margin-top:12px">
-        <button id="startBtn" class="btn primary grow">▶ Start</button>
-        <button id="pauseBtn" class="btn amber hidden">一時停止</button>
-        <button id="resumeBtn" class="btn primary hidden">再開</button>
-        <button id="stopBtn" class="btn danger hidden">■ Stop</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="head" style="margin-bottom:8px"><div class="title" style="font-size:14px;color:#334155">Transcript</div><div id="backupPill" class="pill" style="background:#f1f5f9;color:#64748b">backup on</div></div>
-      <textarea id="transcriptArea" placeholder="ここに認識結果が表示されます。必要に応じて手修正してから親アプリへ送れます。"></textarea>
-      <div class="btns" style="margin-top:10px">
-        <button id="sendBtn" class="btn green grow">親アプリへ送る</button>
-        <button id="clearBtn" class="btn soft">クリア</button>
-        <button id="closeBtn" class="btn soft">閉じる</button>
-      </div>
-      <p class="hint">沈黙しても大丈夫です。考えている間に音声認識が止まった場合は、自動再開します。</p>
-    </div>
-    <div class="mini">MIC_READY → MIC_INIT → MIC_TRANSCRIPT</div>
   </div>
 
+  <div class="label">Target sentence:</div>
+  <div id="sentence" class="sentence">(no sentence)</div>
+
+  <div class="badges">
+    <span class="badge ok">cache: ready</span>
+    <span id="statusBadge" class="badge ok">status: ready</span>
+    <span id="roleBadge" class="badge">role: B</span>
+    <span id="modeBadge" class="badge">mode: standard</span>
+  </div>
+
+  <div id="status" class="status">Startを押して話してください</div>
+  <div class="controls">
+    <button id="startBtn" onclick="startRec()">🎙 Start</button>
+    <button id="stopBtn" class="stop" onclick="stopRec()" disabled>■ Stop</button>
+  </div>
+
+  <div class="controls subBtns">
+    <button id="ipaBtn" class="yellow" onclick="toggleIPA()">英+IPA</button>
+    <button id="ipaBigBtn" class="purple" onclick="toggleIPABig()">IPA大</button>
+    <button class="cyan" onclick="speakRole('A')">🔊 Speak A</button>
+    <button class="cyan" onclick="speakRole('B')">🔊 Speak B</button>
+    <button class="gray" onclick="sendPrev()">◀ Prev</button>
+    <button class="purple" onclick="sendNext()">Next ▶</button>
+    <button class="wide" onclick="resetView()">Reset</button>
+  </div>
+
+  <div class="meterWrap">
+    <span>mic level</span>
+    <div class="meter"><div id="bar" class="bar"></div></div>
+    <span id="levelText">0%</span>
+  </div>
+
+  <div id="result" class="result"></div>
+
+  <div class="previewBox">
+    <div class="previewHeader">
+      <div class="previewTitle">Script preview</div>
+      <button id="scriptDisplayBtn" class="scriptDisplayBtn" type="button" onclick="toggleScriptDisplayMode()">表示: Role</button>
+    </div>
+    <div id="scriptPreview" class="previewText">(no script preview)</div>
+  </div>
+
+  <div id="debug" class="debug">event: idle</div>
+
 <script>
-(function(){
-  'use strict';
-  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var recognition = null;
-  var parentOrigin = '';
-  var parentReady = false;
-  var topic = '';
-  var duration = 60;
-  var remainingSeconds = 60;
-  var timerId = null;
-  var silenceTimerId = null;
+(function(){ window.__micPageBuild = 'mic_html_03202_image_first_phrase_under_image_ipa_big_full'; })();
 
-  var sttUserStopped = false;
-  var sttSessionActive = false;
-  var sttIsRestarting = false;
-  var sttRestartCount = 0;
-  var MAX_RESTART = 30;
-  var sttFullTranscript = '';
-  var sttCurrentInterim = '';
-  var sttLastVoiceTime = Date.now();
-  var alreadySent = false;
-  var saveTimer = null;
+var params = new URLSearchParams(location.search);
+var sentence = params.get('sentence') || '';
+var parentOrigin = params.get('origin') || 'https://script.google.com';
+var role = params.get('role') || 'B';
+var scriptPreview = params.get('script') || '';
+var returnUrl = params.get('return') || '';
+var mode = params.get('mode') || 'popup';
+var token = params.get('token') || 'wpm_mic_result_latest';
+var ipaMode = 0; // 0 = English + IPA, 1 = English only, 2 = IPA only, 3 = IPA big + English small
+var IPA_MODE_ORDER = [0, 3, 2, 1];
+var scriptDisplayMode = 'role'; // role / A / B / both. Not saved; follows current role.
+var receivedIpa = params.get('ipa') || '';
+var receivedIpaTarget = params.get('ipaTarget') || sentence || '';
+// relatedImage URL parameter is fallback only. Main path is postMessage because data URLs can exceed URL length limits.
+var relatedImageDataUrl = params.get('relatedImage') || '';
+var relatedImageTitle = params.get('relatedImageTitle') || '';
+var relatedImageLibraryId = params.get('relatedImageLibraryId') || '';
+var relatedImageUserCollapsed = false;
+var ipaCache = {};
+var recognition = null, isListening = false, heardFinal = '', heardInterim = '', lastAnyResultAt = 0;
+var hardTimer = null, noSpeechTimer = null, softEndTimer = null, silenceAutoStopTimer = null;
+var audioCtx = null, analyser = null, micStream = null, meterRaf = null;
+var ua = navigator.userAgent || '';
+var IS_ANDROID = /Android/i.test(ua);
+var IS_IOS = /iPhone|iPad|iPod/i.test(ua);
+var MAX_LISTEN_MS = IS_ANDROID ? 16000 : 12000;
+var AUTO_STOP_AFTER_SILENCE_MS = 2000;
+var AUTO_STOP_LEVEL_PCT = 4;
+var AUTO_STOP_MIN_AFTER_RESULT_MS = 500;
+var SOFT_END_AFTER_INTERIM_MS = 2200;
 
-  var els = {
-    topic: document.getElementById('topicBox'),
-    timerText: document.getElementById('timerText'),
-    timerBar: document.getElementById('timerBar'),
-    status: document.getElementById('statusText'),
-    liveDot: document.getElementById('liveDot'),
-    transcript: document.getElementById('transcriptArea'),
-    start: document.getElementById('startBtn'),
-    pause: document.getElementById('pauseBtn'),
-    resume: document.getElementById('resumeBtn'),
-    stop: document.getElementById('stopBtn'),
-    send: document.getElementById('sendBtn'),
-    clear: document.getElementById('clearBtn'),
-    close: document.getElementById('closeBtn'),
-    connPill: document.getElementById('connPill'),
-    backupPill: document.getElementById('backupPill')
-  };
+function $(id){ return document.getElementById(id); }
+function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function setStatus(text, cls){ var el=$('status'); if(el){ el.textContent=text||''; el.className='status '+(cls||''); } var b=$('statusBadge'); if(b){ b.textContent='status: '+(cls==='listening'?'listening':cls==='err'?'error':cls==='done'?'done':'ready'); b.className='badge '+(cls==='err'?'warn':'ok'); } }
+function setDebug(text){ var el=$('debug'); if(el) el.textContent = text || ''; }
+function setButtons(listening){ $('startBtn').disabled=!!listening; $('stopBtn').disabled=!listening; }
 
-  function setStatus(msg, cls){
-    els.status.textContent = msg || '';
-    els.status.className = 'status' + (cls ? (' ' + cls) : '');
+function normalizeForIpaSync(text){ return String(text||'').toLowerCase().replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[^a-z0-9']+/g,' ').replace(/\s+/g,' ').trim(); }
+function updateModeBadge(){ var el=$('modeBadge'); if(!el) return; if(IS_ANDROID){el.textContent='mode: Android stable';el.className='badge ok';} else if(IS_IOS){el.textContent='mode: iOS limited';el.className='badge warn';} else {el.textContent='mode: standard';el.className='badge';} }
+function simpleWordToIPA(word){
+  var w=String(word||'').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g,''); if(!w) return '';
+  var dict={"i":"aɪ","i'm":"aɪm","i've":"aɪv","you":"juː","you're":"jʊr","your":"jɔːr","we":"wiː","we're":"wɪr","were":"wɜːr","are":"ɑːr","the":"ðə","a":"ə","an":"ən","and":"ænd","or":"ɔːr","to":"tuː","of":"əv","in":"ɪn","on":"ɑːn","for":"fɔːr","with":"wɪð","from":"frʌm","about":"əˈbaʊt","what":"wʌt","how":"haʊ","have":"hæv","has":"hæz","been":"bɪn","working":"ˈwɜːrkɪŋ","work":"wɜːrk","inside":"ˌɪnˈsaɪd","sales":"seɪlz","japan":"dʒəˈpæn","hiroaki":"hiːroʊˈɑːki","frederic":"ˈfreɪdərɪk","nice":"naɪs","meet":"miːt","heard":"hɜːrd","recently":"ˈriːsəntli","great":"ɡreɪt","finally":"ˈfaɪnəli","person":"ˈpɜːrsən","tell":"tel","me":"miː","kind":"kaɪnd","projects":"ˈprɑːdʒekts","focusing":"ˈfoʊkəsɪŋ","now":"naʊ","rening":"ˈriːnɪŋ","columns":"ˈkɑːləmz","causing":"ˈkɔːzɪŋ","some":"sʌm","trouble":"ˈtrʌbəl","lately":"ˈleɪtli","yeah":"jeə","pharmaceutical":"ˌfɑːrməˈsuːtɪkəl","takeda":"təˈkeɪdə","appointment":"əˈpɔɪntmənt","significant":"sɪɡˈnɪfɪkənt","deal":"diːl","key":"kiː","secure":"sɪˈkjʊr","able":"ˈeɪbəl","could":"kʊd","potentially":"pəˈtenʃəli","lead":"liːd","took":"tʊk","over":"ˈoʊvər","six":"sɪks","months":"mʌnθs","build":"bɪld","relationship":"rɪˈleɪʃənʃɪp","opportunity":"ˌɑːpərˈtuːnəti","specifically":"spəˈsɪfɪkli"};
+  if(dict[w]) return dict[w];
+  return w.replace(/tion\b/g,'ʃən').replace(/sion\b/g,'ʒən').replace(/ph/g,'f').replace(/th/g,'θ').replace(/sh/g,'ʃ').replace(/ch/g,'tʃ').replace(/oo/g,'uː').replace(/ee/g,'iː').replace(/ea/g,'iː').replace(/ai/g,'eɪ').replace(/ay/g,'eɪ').replace(/ow/g,'aʊ').replace(/ou/g,'aʊ').replace(/ar/g,'ɑːr').replace(/er/g,'ɜːr').replace(/or/g,'ɔːr');
+}
+function fallbackSentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; if(ipaCache[text]) return ipaCache[text]; var result=text.split(/\s+/).map(function(w){ var ipa=simpleWordToIPA(w); return ipa?'/'+ipa+'/':''; }).filter(Boolean).join(' '); ipaCache[text]=result; return result; }
+function isReceivedIpaForCurrentSentence(text){ return !!receivedIpa && !!receivedIpaTarget && normalizeForIpaSync(receivedIpaTarget)===normalizeForIpaSync(text); }
+function sentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; return isReceivedIpaForCurrentSentence(text) ? String(receivedIpa).trim() : fallbackSentenceToIPA(text); }
+function getIpaModeLabel(){
+  if(ipaMode===0) return '英+IPA';
+  if(ipaMode===3) return 'IPA大';
+  if(ipaMode===2) return 'IPA only';
+  if(ipaMode===1) return 'English';
+  return '英+IPA';
+}
+function renderSentence(){
+  var el=$('sentence');
+  if(!el) return;
+  var en=sentence||'(no sentence)';
+  var ipa=sentenceToIPA(sentence);
+  el.classList.toggle('ipaBigMode', ipaMode===3);
+  if(ipaMode===0){
+    el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span><div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
+  } else if(ipaMode===3){
+    el.innerHTML='<div class="ipaBigLine">'+escapeHtml(ipa||'(IPA not available)')+'</div><div class="ipaBigSubLine">'+escapeHtml(en)+'</div>';
+  } else if(ipaMode===2){
+    el.innerHTML='<div class="ipaLine">'+escapeHtml(ipa||'(IPA not available)')+'</div>';
+  } else {
+    el.innerHTML='<span class="sentenceText">'+escapeHtml(en)+'</span>';
   }
-  function setListening(on){ els.liveDot.classList.toggle('on', !!on); }
-  function updateButtons(){
-    els.start.classList.toggle('hidden', sttSessionActive);
-    els.stop.classList.toggle('hidden', !sttSessionActive);
-    els.pause.classList.toggle('hidden', !sttSessionActive || sttUserStopped);
-    els.resume.classList.add('hidden');
-  }
-  function updateTimer(){
-    els.timerText.textContent = String(Math.max(0, remainingSeconds));
-    var used = duration ? ((duration - remainingSeconds) / duration) * 100 : 0;
-    els.timerBar.style.width = Math.max(0, Math.min(100, used)) + '%';
-  }
-  function renderTranscript(){
-    var text = (sttFullTranscript + (sttCurrentInterim ? (' ' + sttCurrentInterim) : '')).replace(/\s+/g,' ').trim();
-    els.transcript.value = text;
-  }
-  function backupTranscriptSoon(){
-    if(saveTimer) return;
-    saveTimer = setTimeout(function(){
-      saveTimer = null;
-      try{
-        localStorage.setItem('mic_last_transcript', els.transcript.value || sttFullTranscript || '');
-        localStorage.setItem('mic_last_timestamp', String(Date.now()));
-      }catch(e){}
-    }, 1000);
-  }
-  function restoreBackupIfAny(){
-    try{
-      var saved = localStorage.getItem('mic_last_transcript') || '';
-      var ts = parseInt(localStorage.getItem('mic_last_timestamp') || '0', 10);
-      var ageSec = (Date.now() - ts) / 1000;
-      if(saved && ageSec < 300){
-        if(confirm('前回の認識結果が残っています。復元しますか？\n' + saved.substring(0, 100) + (saved.length > 100 ? '...' : ''))){
-          sttFullTranscript = saved;
-          els.transcript.value = saved;
-          setStatus('前回の認識結果を復元しました', 'ok');
-        }
-      }
-    }catch(e){}
-  }
-  function sendReady(){
-    var payload = {type:'MIC_READY'};
-    try{
-      if(window.opener && !window.opener.closed){ window.opener.postMessage(payload, '*'); }
-      else if(window.parent && window.parent !== window){ window.parent.postMessage(payload, '*'); }
-    }catch(e){}
-  }
-  function sendToParent(){
-    var transcript = (els.transcript.value || '').trim();
-    if(!transcript){ setStatus('送信する認識結果がありません', 'warn'); return; }
-    var payload = {type:'MIC_TRANSCRIPT', transcript: transcript, topic: topic, sentAt: Date.now()};
-    var target = parentOrigin || '*';
-    var sent = false;
-    try{
-      if(window.opener && !window.opener.closed){ window.opener.postMessage(payload, target); sent = true; }
-      else if(window.parent && window.parent !== window){ window.parent.postMessage(payload, target); sent = true; }
-    }catch(e){ setStatus('親アプリへの送信に失敗しました: ' + e.message, 'err'); }
-    if(sent){
-      alreadySent = true;
-      setStatus('親アプリへ送信しました', 'ok');
-      try{ localStorage.removeItem('mic_last_transcript'); localStorage.removeItem('mic_last_timestamp'); }catch(e){}
-    }
-  }
-  function initRecognition(){
-    if(!SpeechRecognition){ setStatus('このブラウザはSpeechRecognitionに対応していません。手入力で使えます。', 'err'); return null; }
-    var rec = new SpeechRecognition();
-    rec.lang = 'en-US';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
+  var btn=$('ipaBtn');
+  if(btn) btn.textContent=getIpaModeLabel();
+  var bigBtn=$('ipaBigBtn');
+  if(bigBtn) bigBtn.classList.toggle('active', ipaMode===3);
+}
+function toggleIPABig(){
+  ipaMode = (Number(ipaMode)===3) ? 0 : 3;
+  renderSentence();
+  try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){}
+  postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
+}
+function toggleIPA(){
+  var idx=IPA_MODE_ORDER.indexOf(Number(ipaMode));
+  if(idx<0) idx=0;
+  ipaMode=IPA_MODE_ORDER[(idx+1)%IPA_MODE_ORDER.length];
+  renderSentence();
+  try{ localStorage.setItem('wpm_mic_ipa_mode',String(ipaMode)); }catch(e){}
+  postToParent({type:'MIC_TOGGLE_IPA',role:role,target:sentence,ipaMode:ipaMode});
+}
 
-    rec.onresult = function(e){
-      sttLastVoiceTime = Date.now();
-      var interim = '';
-      var finalText = '';
-      for(var i=e.resultIndex; i<e.results.length; i++){
-        var part = e.results[i][0] && e.results[i][0].transcript ? e.results[i][0].transcript : '';
-        if(e.results[i].isFinal) finalText += part + ' ';
-        else interim += part;
-      }
-      if(finalText){ sttFullTranscript = (sttFullTranscript + ' ' + finalText).replace(/\s+/g,' ').trim(); }
-      sttCurrentInterim = interim;
-      renderTranscript();
-      backupTranscriptSoon();
-      setStatus('🎤 認識中', 'ok');
-    };
-    rec.onerror = function(e){
-      var code = e && e.error ? e.error : '';
-      if(code === 'no-speech'){
-        setStatus('🎤 聞いています…（考えてOK）', 'warn');
-        return;
-      }
-      if(code === 'not-allowed' || code === 'service-not-allowed'){
-        sttSessionActive = false;
-        sttUserStopped = true;
-        setListening(false);
-        updateButtons();
-        setStatus('マイクまたは音声認識が許可されていません。Chromeのマイク許可を確認してください。', 'err');
-        return;
-      }
-      if(code === 'audio-capture'){
-        setStatus('マイクを取得できません。別アプリが使用中でないか確認してください。', 'err');
-        return;
-      }
-      setStatus('音声認識エラー: ' + (code || 'unknown'), 'err');
-    };
-    rec.onend = function(){
-      setListening(false);
-      if(sttUserStopped || !sttSessionActive) return;
-      if(sttIsRestarting) return;
-      sttRestartCount++;
-      if(sttRestartCount > MAX_RESTART){
-        sttSessionActive = false;
-        setStatus('認識を停止しました（再起動上限）', 'warn');
-        updateButtons();
-        return;
-      }
-      sttIsRestarting = true;
-      setTimeout(function(){
-        sttIsRestarting = false;
-        if(!sttSessionActive || sttUserStopped) return;
-        try{ rec.start(); setListening(true); }
-        catch(err){ console.log('[STT] restart suppressed:', err && err.message); }
-      }, 250);
-    };
-    rec.onstart = function(){ setListening(true); setStatus('🎤 認識中', 'ok'); };
-    return rec;
+function getEffectiveScriptDisplayMode(){
+  if(scriptDisplayMode==='A' || scriptDisplayMode==='B' || scriptDisplayMode==='both') return scriptDisplayMode;
+  var r=String(role||'B').toUpperCase();
+  return r==='A'?'A':'B';
+}
+function shouldShowScriptLine(tag){
+  tag=String(tag||'N').toUpperCase();
+  var mode=getEffectiveScriptDisplayMode();
+  if(mode==='both') return true;
+  if(tag==='N') return false;
+  return tag===mode;
+}
+function getScriptDisplayLabel(){
+  if(scriptDisplayMode==='both') return '表示: A+B';
+  if(scriptDisplayMode==='A') return '表示: Aのみ';
+  if(scriptDisplayMode==='B') return '表示: Bのみ';
+  return '表示: '+(String(role||'B').toUpperCase()==='A'?'Aのみ':'Bのみ');
+}
+function updateScriptDisplayButton(){
+  var btn=$('scriptDisplayBtn');
+  if(!btn) return;
+  btn.textContent=getScriptDisplayLabel();
+  btn.classList.toggle('active', scriptDisplayMode==='both');
+}
+function toggleScriptDisplayMode(){
+  var current=scriptDisplayMode;
+  if(current==='role'){
+    scriptDisplayMode='both';
+  }else if(current==='both'){
+    scriptDisplayMode='A';
+  }else if(current==='A'){
+    scriptDisplayMode='B';
+  }else{
+    scriptDisplayMode='role';
   }
-  function startTimer(){
-    clearInterval(timerId);
-    remainingSeconds = duration;
-    updateTimer();
-    timerId = setInterval(function(){
-      remainingSeconds--;
-      updateTimer();
-      if(remainingSeconds <= 0){ stopRecognition(true); }
-    }, 1000);
-  }
-  function startSilenceMonitor(){
-    clearInterval(silenceTimerId);
-    silenceTimerId = setInterval(function(){
-      if(!sttSessionActive) return;
-      var silentSec = (Date.now() - sttLastVoiceTime) / 1000;
-      if(silentSec > 3){ setStatus('🎤 聞いています…（考えてOK）', 'warn'); }
-    }, 1000);
-  }
-  function startRecognition(){
-    if(sttSessionActive) return;
-    recognition = recognition || initRecognition();
-    if(!recognition) return;
-    sttUserStopped = false;
-    sttSessionActive = true;
-    sttIsRestarting = false;
-    sttRestartCount = 0;
-    sttCurrentInterim = '';
-    sttLastVoiceTime = Date.now();
-    alreadySent = false;
-    updateButtons();
-    startTimer();
-    startSilenceMonitor();
-    try{ recognition.start(); }
-    catch(e){ setStatus('音声認識を開始できませんでした: ' + e.message, 'err'); }
-  }
-  function stopRecognition(autoStop){
-    sttUserStopped = true;
-    sttSessionActive = false;
-    clearInterval(timerId);
-    clearInterval(silenceTimerId);
-    sttCurrentInterim = '';
-    try{ if(recognition) recognition.stop(); }catch(e){}
-    setListening(false);
-    updateButtons();
-    renderTranscript();
-    backupTranscriptSoon();
-    setStatus(autoStop ? '1分終了。必要なら編集して親アプリへ送ってください。' : '停止しました。必要なら編集して親アプリへ送ってください。', autoStop ? 'ok' : '');
-  }
-  function pauseRecognition(){
-    if(!sttSessionActive) return;
-    sttUserStopped = true;
-    try{ if(recognition) recognition.stop(); }catch(e){}
-    els.pause.classList.add('hidden'); els.resume.classList.remove('hidden');
-    setStatus('一時停止中', 'warn');
-  }
-  function resumeRecognition(){
-    if(!sttSessionActive) return;
-    sttUserStopped = false;
-    els.resume.classList.add('hidden'); els.pause.classList.remove('hidden');
-    try{ recognition.start(); }catch(e){}
-  }
-  function clearTranscript(){
-    sttFullTranscript = ''; sttCurrentInterim = ''; els.transcript.value = ''; alreadySent = false;
-    try{ localStorage.removeItem('mic_last_transcript'); localStorage.removeItem('mic_last_timestamp'); }catch(e){}
-    setStatus('クリアしました');
-  }
+  updateScriptDisplayButton();
+  renderScriptPreview();
+  setDebug('event: script display mode '+scriptDisplayMode);
+}
+function renderScriptPreview(){
+  var el=$('scriptPreview');
+  if(!el) return;
+  updateScriptDisplayButton();
+  var text=String(scriptPreview||'').trim();
+  if(!text){ el.textContent='(no script preview)'; return; }
+  var lines=text.split(/\n+/).map(function(x){return x.trim();}).filter(Boolean);
+  var html=lines.map(function(line,i){
+    var m=line.match(/^#?(\d+)?\s*([AB]):\s*(.*)$/i);
+    var tag='N', body=line, no=(i+1)+'.';
+    if(m){ no=m[1]?m[1]+'.':no; tag=m[2].toUpperCase(); body=m[3]||''; }
+    if(!shouldShowScriptLine(tag)) return '';
+    var cur=normalizeForIpaSync(body)===normalizeForIpaSync(sentence);
+    return '<div class="line '+(cur?'current':'')+'"><span class="tag tag'+tag+'">'+escapeHtml(tag)+'</span><div class="txt"><span class="no">'+escapeHtml(no)+'</span>'+escapeHtml(body)+'</div></div>';
+  }).filter(Boolean).join('');
+  el.innerHTML=html || '<div class="txt" style="opacity:.65;">(表示対象のフレーズがありません)</div>';
+  var cur=el.querySelector('.line.current');
+  if(cur) cur.scrollIntoView({block:'nearest'});
+}
 
-  window.addEventListener('message', function(event){
-    var data = event.data || {};
-    if(!data || data.type !== 'MIC_INIT') return;
-    parentOrigin = event.origin || parentOrigin;
-    parentReady = true;
-    topic = String(data.topic || '');
-    duration = Number(data.duration || 60) || 60;
-    remainingSeconds = duration;
-    els.topic.textContent = topic || 'お題なし：自由に話してください。';
-    els.connPill.textContent = 'connected';
-    els.connPill.style.background = '#dcfce7'; els.connPill.style.color = '#166534';
-    updateTimer();
-    setStatus('親アプリと接続しました', 'ok');
-  });
-  els.start.addEventListener('click', startRecognition);
-  els.stop.addEventListener('click', function(){ stopRecognition(false); });
-  els.pause.addEventListener('click', pauseRecognition);
-  els.resume.addEventListener('click', resumeRecognition);
-  els.send.addEventListener('click', sendToParent);
-  els.clear.addEventListener('click', clearTranscript);
-  els.close.addEventListener('click', function(){ if(!alreadySent && (els.transcript.value||'').trim()){ if(confirm('認識結果を親アプリへ送ってから閉じますか？')) sendToParent(); } window.close(); });
-  els.transcript.addEventListener('input', function(){ sttFullTranscript = els.transcript.value || ''; backupTranscriptSoon(); });
-  window.addEventListener('beforeunload', function(){ try{ localStorage.setItem('mic_last_transcript', els.transcript.value || ''); localStorage.setItem('mic_last_timestamp', String(Date.now())); }catch(e){} });
+function postToParent(payload){ try{ if(window.opener && !window.opener.closed) window.opener.postMessage(payload,parentOrigin); }catch(e){} try{ if(window.parent && window.parent!==window) window.parent.postMessage(payload,parentOrigin); }catch(e){} }
+function saveMobileResult(payload){ try{ localStorage.setItem(token,JSON.stringify(payload)); }catch(e){} }
+function returnToParent(payload){ if(mode==='mobile' && returnUrl){ saveMobileResult(payload); setStatus('✅ 完了。元の画面へ戻ります...','done'); setTimeout(function(){ location.href=returnUrl+(returnUrl.indexOf('?')>=0?'&':'?')+'wpmMicReturn=1&token='+encodeURIComponent(token); },700); return; } postToParent(payload); }
 
-  restoreBackupIfAny();
-  updateTimer();
-  updateButtons();
-  if(!SpeechRecognition){ setStatus('SpeechRecognition非対応です。Chrome推奨です。手入力は使えます。', 'err'); }
-  sendReady();
-  setTimeout(sendReady, 500);
-  setTimeout(sendReady, 1500);
-})();
+function clearRelatedImage(){
+  relatedImageDataUrl=''; relatedImageTitle=''; relatedImageLibraryId='';
+  var box=$('relatedImageBox'), img=$('relatedImageImg');
+  if(box) box.classList.add('hidden');
+  if(img) img.removeAttribute('src');
+  setDebug('event: image cleared');
+}
+function setRelatedImage(dataUrl, title, libraryId){
+  var nextData=String(dataUrl||'');
+  var nextTitle=String(title||'');
+  var nextLibraryId=String(libraryId||'');
+  var box=$('relatedImageBox'), img=$('relatedImageImg'), titleEl=$('relatedImageTitle'), meta=$('relatedImageMeta'), body=$('relatedImageBody'), btn=$('relatedImageToggleBtn');
+  if(!box||!img) return;
+  if(!nextData){ clearRelatedImage(); return; }
+  var libraryChanged = nextLibraryId && nextLibraryId !== relatedImageLibraryId;
+  relatedImageDataUrl=nextData;
+  relatedImageTitle=nextTitle;
+  relatedImageLibraryId=nextLibraryId || relatedImageLibraryId;
+  img.src=relatedImageDataUrl;
+  if(titleEl) titleEl.textContent=relatedImageTitle ? '｜'+relatedImageTitle : '';
+  if(meta) meta.textContent=(relatedImageTitle?('「'+relatedImageTitle+'」の関連画像。'):'このテキストの関連画像。')+'タップで拡大できます。';
+  box.classList.remove('hidden');
+  // First image or different library: open. Same image resend: preserve user's collapsed state.
+  if(body){
+    if(libraryChanged || !relatedImageUserCollapsed){ body.classList.remove('hidden'); if(btn) btn.textContent='閉じる'; }
+    else { body.classList.add('hidden'); if(btn) btn.textContent='表示'; }
+  }
+  setDebug('event: image received len=' + relatedImageDataUrl.length);
+}
+function toggleRelatedImage(){ var body=$('relatedImageBody'), btn=$('relatedImageToggleBtn'); if(!body) return; var hide=!body.classList.contains('hidden'); relatedImageUserCollapsed=hide; body.classList.toggle('hidden',hide); if(btn) btn.textContent=hide?'表示':'閉じる'; }
+function openRelatedImageLarge(){ if(!relatedImageDataUrl) return; var w=window.open('','_blank'); if(!w) return; w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>関連画像</title><style>body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px;box-sizing:border-box;}img{max-width:100%;max-height:96vh;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.35);}</style></head><body><img src="'+relatedImageDataUrl.replace(/"/g,'&quot;')+'"></body></html>'); w.document.close(); }
+
+function cleanupTimers(){ [hardTimer,noSpeechTimer,softEndTimer,silenceAutoStopTimer].forEach(function(t){ if(t) clearTimeout(t); }); hardTimer=noSpeechTimer=softEndTimer=silenceAutoStopTimer=null; }
+function clearSilenceAutoStopTimer(){ if(silenceAutoStopTimer){ clearTimeout(silenceAutoStopTimer); silenceAutoStopTimer=null; } }
+function hasHeardText(){ return !!(String(heardFinal||'').trim() || String(heardInterim||'').trim()); }
+function handleAutoStopBySilence(pct){ if(!isListening || !recognition || !hasHeardText()){ clearSilenceAutoStopTimer(); return; } if(pct>AUTO_STOP_LEVEL_PCT){ clearSilenceAutoStopTimer(); return; } if(lastAnyResultAt && Date.now()-lastAnyResultAt<AUTO_STOP_MIN_AFTER_RESULT_MS) return; if(silenceAutoStopTimer) return; setDebug('event: silence detected -> auto stop in 2s'); silenceAutoStopTimer=setTimeout(function(){ if(isListening && hasHeardText()){ setDebug('event: auto stop by silence'); stopRec(); } },AUTO_STOP_AFTER_SILENCE_MS); }
+function cleanupRecognition(){ cleanupTimers(); isListening=false; setButtons(false); try{ if(recognition){ recognition.onresult=recognition.onerror=recognition.onend=null; recognition.stop(); } }catch(e){} recognition=null; try{ if(meterRaf) cancelAnimationFrame(meterRaf); }catch(e){} meterRaf=null; try{ if(micStream) micStream.getTracks().forEach(function(t){t.stop();}); }catch(e){} micStream=null; try{ if(audioCtx) audioCtx.close(); }catch(e){} audioCtx=null; analyser=null; $('bar').style.width='0%'; $('levelText').textContent='0%'; }
+function finishWithText(text,autoStop){ text=String(text||'').trim(); cleanupRecognition(); if(text){ $('result').textContent='認識: '+text; setStatus('✅ 完了','done'); setDebug('event: final result sent'); returnToParent({type:'MIC_RESULT',text:text,target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); } else { $('result').textContent=''; setStatus('停止しました。認識結果がありません。もう一度Startを押してください。','err'); setDebug(autoStop?'event: timeout/no result':'event: recognition ended without result'); returnToParent({type:'MIC_EMPTY',target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); } }
+function stopRec(){ try{ if(recognition && isListening){ setStatus('Stopping...','listening'); recognition.stop(); } }catch(e){ cleanupRecognition(); setStatus('停止しました。',''); setDebug('event: stop exception'); } }
+function startMeter(stream){ try{ micStream=stream; audioCtx=new (window.AudioContext||window.webkitAudioContext)(); analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; var source=audioCtx.createMediaStreamSource(stream); source.connect(analyser); var data=new Uint8Array(analyser.fftSize); function tick(){ if(!analyser) return; analyser.getByteTimeDomainData(data); var sum=0; for(var i=0;i<data.length;i++){ var v=(data[i]-128)/128; sum+=v*v; } var pct=Math.min(100,Math.round(Math.sqrt(sum/data.length)*260)); $('bar').style.width=pct+'%'; $('levelText').textContent=pct+'%'; handleAutoStopBySilence(pct); meterRaf=requestAnimationFrame(tick); } tick(); }catch(e){ setDebug('event: meter failed'); } }
+function startRec(){ var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ setStatus('このブラウザは音声認識に対応していません。Chromeを使ってください。','err'); return; } cleanupRecognition(); heardFinal=''; heardInterim=''; lastAnyResultAt=0; $('result').textContent=''; recognition=new SR(); recognition.lang='en-US'; recognition.continuous=true; recognition.interimResults=true; recognition.maxAlternatives=1; recognition.onstart=function(){ isListening=true; setButtons(true); setStatus('Listening...','listening'); setDebug('event: recognition started'); hardTimer=setTimeout(function(){ if(isListening){ setDebug('event: hard timeout'); finishWithText(heardFinal||heardInterim,true); } },MAX_LISTEN_MS); };
+  recognition.onresult=function(ev){ var interim=''; for(var i=ev.resultIndex;i<ev.results.length;i++){ var txt=ev.results[i][0].transcript; if(ev.results[i].isFinal) heardFinal += (heardFinal?' ':'') + txt; else interim += txt; } heardInterim=interim; lastAnyResultAt=Date.now(); var shown=(heardFinal+' '+heardInterim).trim(); $('result').textContent = shown ? ('認識中: '+shown) : ''; clearSilenceAutoStopTimer(); if(softEndTimer) clearTimeout(softEndTimer); softEndTimer=setTimeout(function(){ if(isListening && hasHeardText()){ setDebug('event: soft end after interim'); stopRec(); } },SOFT_END_AFTER_INTERIM_MS); };
+  recognition.onerror=function(e){ setStatus('Mic error: '+(e.error||'unknown'),'err'); setDebug('event: error '+(e.error||'')); returnToParent({type:'MIC_ERROR',error:e.error||'unknown',target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); cleanupRecognition(); };
+  recognition.onend=function(){ if(isListening){ finishWithText(heardFinal||heardInterim,false); } };
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){ startMeter(stream); recognition.start(); }).catch(function(err){ setStatus('マイクを利用できません: '+(err&&err.message?err.message:err),'err'); setDebug('event: getUserMedia failed'); returnToParent({type:'MIC_ERROR',error:String(err&&err.message?err.message:err),target:sentence,role:role,token:token,ts:Date.now(),build:window.__micPageBuild}); }); }
+
+function speakText(text){ text=String(text||'').trim(); if(!text) return; try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.95; speechSynthesis.speak(u); }catch(e){} }
+function speakRole(r){ postToParent({type:'MIC_SPEAK_ROLE',role:r,target:sentence,token:token,ts:Date.now()}); if((r||'')===role) speakText(sentence); }
+function sendPrev(){ postToParent({type:'MIC_PREV',role:role,target:sentence,token:token,ts:Date.now()}); }
+function sendNext(){ postToParent({type:'MIC_NEXT',role:role,target:sentence,token:token,ts:Date.now()}); }
+function resetView(){ cleanupRecognition(); heardFinal=''; heardInterim=''; $('result').textContent=''; setStatus('Startを押して話してください',''); setDebug('event: reset'); }
+function applyTargetPayload(d){
+  d=d||{};
+  sentence=String(d.sentence||d.target||sentence||'');
+  role=String(d.role||role||'B');
+  scriptDisplayMode='role';
+  scriptPreview=String(d.script||scriptPreview||'');
+  if(d.ipa!==undefined){ receivedIpa=String(d.ipa||''); receivedIpaTarget=String(d.ipaTarget||sentence||''); }
+  $('roleBadge').textContent='role: '+role;
+  renderSentence(); renderScriptPreview(); setStatus('Startを押して話してください',''); setDebug('event: target updated');
+  if(d.relatedImage || d.relatedImageDataUrl || d.dataUrl){
+    setRelatedImage(d.relatedImage||d.relatedImageDataUrl||d.dataUrl, d.relatedImageTitle||d.title||'', d.libraryId||d.relatedImageLibraryId||'');
+  }else{
+    // Prevent stale image from previous phrase while new image is loading.
+    clearRelatedImage();
+  }
+}
+
+window.addEventListener('message',function(e){
+  var d=e.data||{}; if(!d || !d.type) return;
+  if(d.type==='SET_TARGET' || d.type==='MIC_SET_TARGET'){ applyTargetPayload(d); return; }
+  if(d.type==='SET_RELATED_IMAGE' || d.type==='MIC_RELATED_IMAGE' || d.type==='WPM_RELATED_IMAGE'){
+    setRelatedImage(d.dataUrl||d.data||d.relatedImage||'', d.title||d.relatedImageTitle||'', d.libraryId||d.relatedImageLibraryId||''); return;
+  }
+  if(d.type==='CLEAR_RELATED_IMAGE'){ clearRelatedImage(); return; }
+});
+
+function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='role'; $('roleBadge').textContent='role: '+role; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
+init();
 </script>
 </body>
 </html>
