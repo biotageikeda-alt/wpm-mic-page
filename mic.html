@@ -167,7 +167,7 @@
   <div id="debug" class="debug">event: idle</div>
 
 <script>
-(function(){ window.__micPageBuild = 'mic_html_phase3_3_10_fixed_ipa_rebalance_clean'; })();
+(function(){ window.__micPageBuild = 'mic_html_phase3_3_11_raw_numbers_versions_ipa'; })();
 
 var params = new URLSearchParams(location.search);
 var sentence = params.get('sentence') || '';
@@ -211,13 +211,60 @@ function setButtons(listening){ $('startBtn').disabled=!!listening; $('stopBtn')
 
 function normalizeForIpaSync(text){ return String(text||'').toLowerCase().replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[^a-z0-9']+/g,' ').replace(/\s+/g,' ').trim(); }
 function updateModeBadge(){ var el=$('modeBadge'); if(!el) return; if(IS_ANDROID){el.textContent='mode: Android stable';el.className='badge ok';} else if(IS_IOS){el.textContent='mode: iOS limited';el.className='badge warn';} else {el.textContent='mode: standard';el.className='badge';} }
+// Phase 3.3.11: keep numeric/version/acronym tokens raw in IPA display.
+// Examples: 3.3.10, v3.4.5, 0501, 2026/5/5, $10, 10%, API, CSS, MIC.
+function getRawIpaTokenCore_(token){
+  var raw = String(token || '').trim();
+  if(!raw) return '';
+  return raw
+    .replace(/^[`\"'“”‘’（(\[{]+/, '')
+    .replace(/[`\"'“”‘’）)\]}。,，、;；:：!?！？]+$/, '');
+}
+function shouldKeepRawInIpaLine_(token){
+  var raw = String(token || '').trim();
+  var core = getRawIpaTokenCore_(raw);
+  if(!core) return false;
+
+  // Version / date / time-like tokens
+  if(/^v?\d+(?:[.\-\/:]\d+)+$/i.test(core)) return true;
+
+  // Plain numbers, percentages, prices
+  if(/^\d+(?:st|nd|rd|th)?$/i.test(core)) return true;
+  if(/^\d+(?:\.\d+)?%$/.test(core)) return true;
+  if(/^[\$¥€£]\d+(?:,\d{3})*(?:\.\d+)?$/.test(core)) return true;
+  if(/^\d+(?:,\d{3})+(?:\.\d+)?$/.test(core)) return true;
+
+  // Common technical acronyms should remain readable, not pseudo-IPA converted.
+  if(/^[A-Z]{2,}(?:[0-9]+)?$/.test(core)) return true;
+
+  return false;
+}
 function simpleWordToIPA(word){
-  var w=String(word||'').toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g,''); if(!w) return '';
+  var raw = String(word || '').trim();
+  if(shouldKeepRawInIpaLine_(raw)) return raw;
+
+  var w=raw.toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g,'');
+  if(!w) return raw;
+
   var dict={"i":"aɪ","i'm":"aɪm","i've":"aɪv","you":"juː","you're":"jʊr","your":"jɔːr","we":"wiː","we're":"wɪr","were":"wɜːr","are":"ɑːr","the":"ðə","a":"ə","an":"ən","and":"ænd","or":"ɔːr","to":"tuː","of":"əv","in":"ɪn","on":"ɑːn","for":"fɔːr","with":"wɪð","from":"frʌm","about":"əˈbaʊt","what":"wʌt","how":"haʊ","have":"hæv","has":"hæz","been":"bɪn","working":"ˈwɜːrkɪŋ","work":"wɜːrk","inside":"ˌɪnˈsaɪd","sales":"seɪlz","japan":"dʒəˈpæn","hiroaki":"hiːroʊˈɑːki","frederic":"ˈfreɪdərɪk","nice":"naɪs","meet":"miːt","heard":"hɜːrd","recently":"ˈriːsəntli","great":"ɡreɪt","finally":"ˈfaɪnəli","person":"ˈpɜːrsən","tell":"tel","me":"miː","kind":"kaɪnd","projects":"ˈprɑːdʒekts","focusing":"ˈfoʊkəsɪŋ","now":"naʊ","rening":"ˈriːnɪŋ","columns":"ˈkɑːləmz","causing":"ˈkɔːzɪŋ","some":"sʌm","trouble":"ˈtrʌbəl","lately":"ˈleɪtli","yeah":"jeə","pharmaceutical":"ˌfɑːrməˈsuːtɪkəl","takeda":"təˈkeɪdə","appointment":"əˈpɔɪntmənt","significant":"sɪɡˈnɪfɪkənt","deal":"diːl","key":"kiː","secure":"sɪˈkjʊr","able":"ˈeɪbəl","could":"kʊd","potentially":"pəˈtenʃəli","lead":"liːd","took":"tʊk","over":"ˈoʊvər","six":"sɪks","months":"mʌnθs","build":"bɪld","relationship":"rɪˈleɪʃənʃɪp","opportunity":"ˌɑːpərˈtuːnəti","specifically":"spəˈsɪfɪkli"};
   if(dict[w]) return dict[w];
   return w.replace(/tion\b/g,'ʃən').replace(/sion\b/g,'ʒən').replace(/ph/g,'f').replace(/th/g,'θ').replace(/sh/g,'ʃ').replace(/ch/g,'tʃ').replace(/oo/g,'uː').replace(/ee/g,'iː').replace(/ea/g,'iː').replace(/ai/g,'eɪ').replace(/ay/g,'eɪ').replace(/ow/g,'aʊ').replace(/ou/g,'aʊ').replace(/ar/g,'ɑːr').replace(/er/g,'ɜːr').replace(/or/g,'ɔːr');
 }
-function fallbackSentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; if(ipaCache[text]) return ipaCache[text]; var result=text.split(/\s+/).map(function(w){ var ipa=simpleWordToIPA(w); return ipa?'/'+ipa+'/':''; }).filter(Boolean).join(' '); ipaCache[text]=result; return result; }
+function fallbackSentenceToIPA(text){
+  text=String(text||'').trim();
+  if(!text) return '';
+  if(ipaCache[text]) return ipaCache[text];
+
+  var result=text.split(/\s+/).map(function(w){
+    if(shouldKeepRawInIpaLine_(w)) return w;
+    var ipa=simpleWordToIPA(w);
+    if(!ipa) return '';
+    return shouldKeepRawInIpaLine_(ipa) ? ipa : '/'+ipa+'/';
+  }).filter(Boolean).join(' ');
+
+  ipaCache[text]=result;
+  return result;
+}
 function isReceivedIpaForCurrentSentence(text){ return !!receivedIpa && !!receivedIpaTarget && normalizeForIpaSync(receivedIpaTarget)===normalizeForIpaSync(text); }
 function sentenceToIPA(text){ text=String(text||'').trim(); if(!text) return ''; return isReceivedIpaForCurrentSentence(text) ? String(receivedIpa).trim() : fallbackSentenceToIPA(text); }
 function getIpaModeLabel(){
