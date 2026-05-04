@@ -405,6 +405,111 @@ window.addEventListener('message',function(e){
 function init(){ try{ ipaMode=Number(localStorage.getItem('wpm_mic_ipa_mode')||'0')||0; if(ipaMode===3) ipaMode=0; if(IPA_MODE_ORDER.indexOf(ipaMode)<0) ipaMode=0; }catch(e){ ipaMode=0; } scriptDisplayMode='both'; role=userRole; $('roleBadge').textContent='role: '+userRole+' (you)'; updateModeBadge(); updateScriptDisplayButton(); renderSentence(); renderScriptPreview(); setRelatedImage(relatedImageDataUrl, relatedImageTitle); setButtons(false); try{ if(window.top!==window.self){ setStatus('このMic画面はiframe内では使えません。別ウィンドウで開き直してください。','err'); } }catch(e){} setTimeout(function(){ postToParent({type:'MIC_READY',role:role,userRole:userRole,aiRole:(userRole==='A'?'B':'A'),target:sentence,token:token,build:window.__micPageBuild,ts:Date.now()}); },120); }
 init();
 
+  /* ================================================================
+   Phase 3.3.10: MIC Target sentence IPA/English rebalance patch
+   Purpose:
+   - Keep IPA large display readable
+   - Make the English line under the IPA slightly larger
+   - Do not re-add the purple IPA large button
+
+   Paste location:
+   - GitHub Pages mic.html
+   - Paste inside the existing <style> block, just before </style>
+
+   Delete before applying:
+   - No required deletion if mic.html is already Phase 3.3.6 clean.
+   - If any old block named "Phase 3.3.2 GitHub mic.html patch" remains, delete that entire block first.
+   - If duplicate CSS rules for "target-ipa-large" exist below this patch, move this patch to the very bottom of <style> so it wins.
+================================================================ */
+
+/* ===== Target sentence: IPA large + English support line rebalance ===== */
+#targetBox.target-display-both.target-ipa-large,
+#targetSentenceBox.target-display-both.target-ipa-large,
+.targetBox.target-display-both.target-ipa-large,
+.target-card.target-display-both.target-ipa-large {
+  padding: 16px 18px !important;
+}
+
+/* IPA stays large and primary */
+#targetBox.target-display-both.target-ipa-large #targetIpa,
+#targetBox.target-display-both.target-ipa-large .target-ipa,
+#targetBox.target-display-both.target-ipa-large .ipaLine,
+#targetSentenceBox.target-display-both.target-ipa-large #targetIpa,
+#targetSentenceBox.target-display-both.target-ipa-large .target-ipa,
+#targetSentenceBox.target-display-both.target-ipa-large .ipaLine,
+.targetBox.target-display-both.target-ipa-large #targetIpa,
+.targetBox.target-display-both.target-ipa-large .target-ipa,
+.targetBox.target-display-both.target-ipa-large .ipaLine,
+.target-card.target-display-both.target-ipa-large #targetIpa,
+.target-card.target-display-both.target-ipa-large .target-ipa,
+.target-card.target-display-both.target-ipa-large .ipaLine {
+  display: block !important;
+  font-size: 25px !important;
+  line-height: 1.42 !important;
+  font-weight: 950 !important;
+  letter-spacing: .01em !important;
+  color: #fde68a !important;
+  margin: 0 0 9px 0 !important;
+  word-break: break-word !important;
+}
+
+/* English support line: bigger than before, but still secondary */
+#targetBox.target-display-both.target-ipa-large #targetText,
+#targetBox.target-display-both.target-ipa-large .target-en,
+#targetBox.target-display-both.target-ipa-large .sentenceText,
+#targetSentenceBox.target-display-both.target-ipa-large #targetText,
+#targetSentenceBox.target-display-both.target-ipa-large .target-en,
+#targetSentenceBox.target-display-both.target-ipa-large .sentenceText,
+.targetBox.target-display-both.target-ipa-large #targetText,
+.targetBox.target-display-both.target-ipa-large .target-en,
+.targetBox.target-display-both.target-ipa-large .sentenceText,
+.target-card.target-display-both.target-ipa-large #targetText,
+.target-card.target-display-both.target-ipa-large .target-en,
+.target-card.target-display-both.target-ipa-large .sentenceText {
+  display: block !important;
+  font-size: 14px !important;
+  line-height: 1.48 !important;
+  font-weight: 800 !important;
+  color: rgba(226,232,240,.88) !important;
+  margin: 0 !important;
+  word-break: break-word !important;
+}
+
+@media (max-width: 640px){
+  #targetBox.target-display-both.target-ipa-large #targetIpa,
+  #targetBox.target-display-both.target-ipa-large .target-ipa,
+  #targetBox.target-display-both.target-ipa-large .ipaLine,
+  #targetSentenceBox.target-display-both.target-ipa-large #targetIpa,
+  #targetSentenceBox.target-display-both.target-ipa-large .target-ipa,
+  #targetSentenceBox.target-display-both.target-ipa-large .ipaLine,
+  .targetBox.target-display-both.target-ipa-large #targetIpa,
+  .targetBox.target-display-both.target-ipa-large .target-ipa,
+  .targetBox.target-display-both.target-ipa-large .ipaLine,
+  .target-card.target-display-both.target-ipa-large #targetIpa,
+  .target-card.target-display-both.target-ipa-large .target-ipa,
+  .target-card.target-display-both.target-ipa-large .ipaLine {
+    font-size: 23px !important;
+    line-height: 1.45 !important;
+  }
+
+  #targetBox.target-display-both.target-ipa-large #targetText,
+  #targetBox.target-display-both.target-ipa-large .target-en,
+  #targetBox.target-display-both.target-ipa-large .sentenceText,
+  #targetSentenceBox.target-display-both.target-ipa-large #targetText,
+  #targetSentenceBox.target-display-both.target-ipa-large .target-en,
+  #targetSentenceBox.target-display-both.target-ipa-large .sentenceText,
+  .targetBox.target-display-both.target-ipa-large #targetText,
+  .targetBox.target-display-both.target-ipa-large .target-en,
+  .targetBox.target-display-both.target-ipa-large .sentenceText,
+  .target-card.target-display-both.target-ipa-large #targetText,
+  .target-card.target-display-both.target-ipa-large .target-en,
+  .target-card.target-display-both.target-ipa-large .sentenceText {
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+  }
+}
+
+
 </script>
 </body>
 </html>
