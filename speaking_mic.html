@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speaking MIC</title>
+  <style>
+    :root{--blue:#2563eb;--rose:#e11d48;--green:#059669;--amber:#d97706;--slate:#334155;}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a;}
+    .wrap{max-width:520px;margin:0 auto;min-height:100vh;padding:14px;display:flex;flex-direction:column;gap:12px;}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:14px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+    .head{display:flex;align-items:center;gap:8px}.title{font-weight:900;color:#1d4ed8}.pill{font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;margin-left:auto}
+    .topic{font-size:14px;line-height:1.55;font-weight:800;color:#334155;background:#f1f5f9;border-radius:12px;padding:10px;white-space:pre-wrap}
+    .timer{font-size:48px;line-height:1;font-weight:1000;letter-spacing:-.04em;text-align:center;color:#e11d48;margin:10px 0 4px}.timer small{font-size:14px;color:#64748b;font-weight:800;letter-spacing:0}
+    .bar{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}.bar>div{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#2563eb);transition:width .2s}
+    .status{font-size:12px;color:#475569;font-weight:800;text-align:center;min-height:22px}.status.warn{color:#b45309}.status.err{color:#b91c1c}.status.ok{color:#047857}
+    textarea{width:100%;min-height:190px;border:1px solid #cbd5e1;border-radius:14px;padding:12px;font-size:15px;line-height:1.55;outline:none;resize:vertical;background:#fff} textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.25)}
+    .btns{display:flex;flex-wrap:wrap;gap:8px}.btn{border:0;border-radius:12px;padding:10px 13px;font-size:13px;font-weight:900;cursor:pointer;min-height:42px;transition:transform .05s,opacity .2s}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.45;cursor:not-allowed}.primary{background:#2563eb;color:white}.danger{background:#e11d48;color:white}.soft{background:#e2e8f0;color:#334155}.green{background:#059669;color:white}.amber{background:#f59e0b;color:#78350f}.purple{background:#7c3aed;color:white}.grow{flex:1}
+    .hint{font-size:12px;line-height:1.5;color:#64748b}.live{display:flex;align-items:center;gap:6px;justify-content:center}.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8}.dot.on{background:#ef4444;animation:pulse 1s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%{box-shadow:0 0 0 10px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+    .mini{font-size:11px;color:#94a3b8;text-align:center}.hidden{display:none!important}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head"><div class="title">🎙 Speaking MIC</div><div id="connPill" class="pill">standalone</div></div>
+      <p class="hint">GitHub Pages版MICです。音声認識だけを行い、結果を親のGASアプリへ返します。Claude補正は親アプリ側で行います。</p>
+    </div>
+
+    <div class="card">
+      <div class="hint" style="font-weight:900;color:#64748b;margin-bottom:6px">Topic</div>
+      <div id="topicBox" class="topic">親アプリからお題を受信待ち...</div>
+    </div>
+
+    <div class="card">
+      <div class="timer"><span id="timerText">60</span><small>s</small></div>
+      <div class="bar"><div id="timerBar"></div></div>
+      <div class="live" style="margin-top:10px"><span id="liveDot" class="dot"></span><span id="statusText" class="status">Ready</span></div>
+      <div class="btns" style="margin-top:12px">
+        <button id="startBtn" class="btn primary grow">▶ Start</button>
+        <button id="pauseBtn" class="btn amber hidden">一時停止</button>
+        <button id="resumeBtn" class="btn primary hidden">再開</button>
+        <button id="stopBtn" class="btn danger hidden">■ Stop</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="head" style="margin-bottom:8px"><div class="title" style="font-size:14px;color:#334155">Transcript</div><div id="backupPill" class="pill" style="background:#f1f5f9;color:#64748b">backup on</div></div>
+      <textarea id="transcriptArea" placeholder="ここに認識結果が表示されます。必要に応じて手修正してから親アプリへ送れます。"></textarea>
+      <div class="btns" style="margin-top:10px">
+        <button id="sendBtn" class="btn green grow">親アプリへ送る</button>
+        <button id="clearBtn" class="btn soft">クリア</button>
+        <button id="closeBtn" class="btn soft">閉じる</button>
+      </div>
+      <p class="hint">沈黙しても大丈夫です。考えている間に音声認識が止まった場合は、自動再開します。</p>
+    </div>
+    <div class="mini">MIC_READY → MIC_INIT → MIC_TRANSCRIPT</div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var parentOrigin = '';
+  var parentReady = false;
+  var topic = '';
+  var duration = 60;
+  var remainingSeconds = 60;
+  var timerId = null;
+  var silenceTimerId = null;
+
+  var sttUserStopped = false;
+  var sttSessionActive = false;
+  var sttIsRestarting = false;
+  var sttRestartCount = 0;
+  var MAX_RESTART = 30;
+  var sttFullTranscript = '';
+  var sttCurrentInterim = '';
+  var sttLastVoiceTime = Date.now();
+  var alreadySent = false;
+  var saveTimer = null;
+
+  var els = {
+    topic: document.getElementById('topicBox'),
+    timerText: document.getElementById('timerText'),
+    timerBar: document.getElementById('timerBar'),
+    status: document.getElementById('statusText'),
+    liveDot: document.getElementById('liveDot'),
+    transcript: document.getElementById('transcriptArea'),
+    start: document.getElementById('startBtn'),
+    pause: document.getElementById('pauseBtn'),
+    resume: document.getElementById('resumeBtn'),
+    stop: document.getElementById('stopBtn'),
+    send: document.getElementById('sendBtn'),
+    clear: document.getElementById('clearBtn'),
+    close: document.getElementById('closeBtn'),
+    connPill: document.getElementById('connPill'),
+    backupPill: document.getElementById('backupPill')
+  };
+
+  function setStatus(msg, cls){
+    els.status.textContent = msg || '';
+    els.status.className = 'status' + (cls ? (' ' + cls) : '');
+  }
+  function setListening(on){ els.liveDot.classList.toggle('on', !!on); }
+  function updateButtons(){
+    els.start.classList.toggle('hidden', sttSessionActive);
+    els.stop.classList.toggle('hidden', !sttSessionActive);
+    els.pause.classList.toggle('hidden', !sttSessionActive || sttUserStopped);
+    els.resume.classList.add('hidden');
+  }
+  function updateTimer(){
+    els.timerText.textContent = String(Math.max(0, remainingSeconds));
+    var used = duration ? ((duration - remainingSeconds) / duration) * 100 : 0;
+    els.timerBar.style.width = Math.max(0, Math.min(100, used)) + '%';
+  }
+  function renderTranscript(){
+    var text = (sttFullTranscript + (sttCurrentInterim ? (' ' + sttCurrentInterim) : '')).replace(/\s+/g,' ').trim();
+    els.transcript.value = text;
+  }
+  function backupTranscriptSoon(){
+    if(saveTimer) return;
+    saveTimer = setTimeout(function(){
+      saveTimer = null;
+      try{
+        localStorage.setItem('mic_last_transcript', els.transcript.value || sttFullTranscript || '');
+        localStorage.setItem('mic_last_timestamp', String(Date.now()));
+      }catch(e){}
+    }, 1000);
+  }
+  function restoreBackupIfAny(){
+    try{
+      var saved = localStorage.getItem('mic_last_transcript') || '';
+      var ts = parseInt(localStorage.getItem('mic_last_timestamp') || '0', 10);
+      var ageSec = (Date.now() - ts) / 1000;
+      if(saved && ageSec < 300){
+        if(confirm('前回の認識結果が残っています。復元しますか？\n' + saved.substring(0, 100) + (saved.length > 100 ? '...' : ''))){
+          sttFullTranscript = saved;
+          els.transcript.value = saved;
+          setStatus('前回の認識結果を復元しました', 'ok');
+        }
+      }
+    }catch(e){}
+  }
+  function sendReady(){
+    var payload = {type:'MIC_READY'};
+    try{
+      if(window.opener && !window.opener.closed){ window.opener.postMessage(payload, '*'); }
+      else if(window.parent && window.parent !== window){ window.parent.postMessage(payload, '*'); }
+    }catch(e){}
+  }
+  function sendToParent(){
+    var transcript = (els.transcript.value || '').trim();
+    if(!transcript){ setStatus('送信する認識結果がありません', 'warn'); return; }
+    var payload = {type:'MIC_TRANSCRIPT', transcript: transcript, topic: topic, sentAt: Date.now()};
+    var target = parentOrigin || '*';
+    var sent = false;
+    try{
+      if(window.opener && !window.opener.closed){ window.opener.postMessage(payload, target); sent = true; }
+      else if(window.parent && window.parent !== window){ window.parent.postMessage(payload, target); sent = true; }
+    }catch(e){ setStatus('親アプリへの送信に失敗しました: ' + e.message, 'err'); }
+    if(sent){
+      alreadySent = true;
+      setStatus('親アプリへ送信しました', 'ok');
+      try{ localStorage.removeItem('mic_last_transcript'); localStorage.removeItem('mic_last_timestamp'); }catch(e){}
+    }
+  }
+  function initRecognition(){
+    if(!SpeechRecognition){ setStatus('このブラウザはSpeechRecognitionに対応していません。手入力で使えます。', 'err'); return null; }
+    var rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = function(e){
+      sttLastVoiceTime = Date.now();
+      var interim = '';
+      var finalText = '';
+      for(var i=e.resultIndex; i<e.results.length; i++){
+        var part = e.results[i][0] && e.results[i][0].transcript ? e.results[i][0].transcript : '';
+        if(e.results[i].isFinal) finalText += part + ' ';
+        else interim += part;
+      }
+      if(finalText){ sttFullTranscript = (sttFullTranscript + ' ' + finalText).replace(/\s+/g,' ').trim(); }
+      sttCurrentInterim = interim;
+      renderTranscript();
+      backupTranscriptSoon();
+      setStatus('🎤 認識中', 'ok');
+    };
+    rec.onerror = function(e){
+      var code = e && e.error ? e.error : '';
+      if(code === 'no-speech'){
+        setStatus('🎤 聞いています…（考えてOK）', 'warn');
+        return;
+      }
+      if(code === 'not-allowed' || code === 'service-not-allowed'){
+        sttSessionActive = false;
+        sttUserStopped = true;
+        setListening(false);
+        updateButtons();
+        setStatus('マイクまたは音声認識が許可されていません。Chromeのマイク許可を確認してください。', 'err');
+        return;
+      }
+      if(code === 'audio-capture'){
+        setStatus('マイクを取得できません。別アプリが使用中でないか確認してください。', 'err');
+        return;
+      }
+      setStatus('音声認識エラー: ' + (code || 'unknown'), 'err');
+    };
+    rec.onend = function(){
+      setListening(false);
+      if(sttUserStopped || !sttSessionActive) return;
+      if(sttIsRestarting) return;
+      sttRestartCount++;
+      if(sttRestartCount > MAX_RESTART){
+        sttSessionActive = false;
+        setStatus('認識を停止しました（再起動上限）', 'warn');
+        updateButtons();
+        return;
+      }
+      sttIsRestarting = true;
+      setTimeout(function(){
+        sttIsRestarting = false;
+        if(!sttSessionActive || sttUserStopped) return;
+        try{ rec.start(); setListening(true); }
+        catch(err){ console.log('[STT] restart suppressed:', err && err.message); }
+      }, 250);
+    };
+    rec.onstart = function(){ setListening(true); setStatus('🎤 認識中', 'ok'); };
+    return rec;
+  }
+  function startTimer(){
+    clearInterval(timerId);
+    remainingSeconds = duration;
+    updateTimer();
+    timerId = setInterval(function(){
+      remainingSeconds--;
+      updateTimer();
+      if(remainingSeconds <= 0){ stopRecognition(true); }
+    }, 1000);
+  }
+  function startSilenceMonitor(){
+    clearInterval(silenceTimerId);
+    silenceTimerId = setInterval(function(){
+      if(!sttSessionActive) return;
+      var silentSec = (Date.now() - sttLastVoiceTime) / 1000;
+      if(silentSec > 3){ setStatus('🎤 聞いています…（考えてOK）', 'warn'); }
+    }, 1000);
+  }
+  function startRecognition(){
+    if(sttSessionActive) return;
+    recognition = recognition || initRecognition();
+    if(!recognition) return;
+    sttUserStopped = false;
+    sttSessionActive = true;
+    sttIsRestarting = false;
+    sttRestartCount = 0;
+    sttCurrentInterim = '';
+    sttLastVoiceTime = Date.now();
+    alreadySent = false;
+    updateButtons();
+    startTimer();
+    startSilenceMonitor();
+    try{ recognition.start(); }
+    catch(e){ setStatus('音声認識を開始できませんでした: ' + e.message, 'err'); }
+  }
+  function stopRecognition(autoStop){
+    sttUserStopped = true;
+    sttSessionActive = false;
+    clearInterval(timerId);
+    clearInterval(silenceTimerId);
+    sttCurrentInterim = '';
+    try{ if(recognition) recognition.stop(); }catch(e){}
+    setListening(false);
+    updateButtons();
+    renderTranscript();
+    backupTranscriptSoon();
+    setStatus(autoStop ? '1分終了。必要なら編集して親アプリへ送ってください。' : '停止しました。必要なら編集して親アプリへ送ってください。', autoStop ? 'ok' : '');
+  }
+  function pauseRecognition(){
+    if(!sttSessionActive) return;
+    sttUserStopped = true;
+    try{ if(recognition) recognition.stop(); }catch(e){}
+    els.pause.classList.add('hidden'); els.resume.classList.remove('hidden');
+    setStatus('一時停止中', 'warn');
+  }
+  function resumeRecognition(){
+    if(!sttSessionActive) return;
+    sttUserStopped = false;
+    els.resume.classList.add('hidden'); els.pause.classList.remove('hidden');
+    try{ recognition.start(); }catch(e){}
+  }
+  function clearTranscript(){
+    sttFullTranscript = ''; sttCurrentInterim = ''; els.transcript.value = ''; alreadySent = false;
+    try{ localStorage.removeItem('mic_last_transcript'); localStorage.removeItem('mic_last_timestamp'); }catch(e){}
+    setStatus('クリアしました');
+  }
+
+  window.addEventListener('message', function(event){
+    var data = event.data || {};
+    if(!data || data.type !== 'MIC_INIT') return;
+    parentOrigin = event.origin || parentOrigin;
+    parentReady = true;
+    topic = String(data.topic || '');
+    duration = Number(data.duration || 60) || 60;
+    remainingSeconds = duration;
+    els.topic.textContent = topic || 'お題なし：自由に話してください。';
+    els.connPill.textContent = 'connected';
+    els.connPill.style.background = '#dcfce7'; els.connPill.style.color = '#166534';
+    updateTimer();
+    setStatus('親アプリと接続しました', 'ok');
+  });
+  els.start.addEventListener('click', startRecognition);
+  els.stop.addEventListener('click', function(){ stopRecognition(false); });
+  els.pause.addEventListener('click', pauseRecognition);
+  els.resume.addEventListener('click', resumeRecognition);
+  els.send.addEventListener('click', sendToParent);
+  els.clear.addEventListener('click', clearTranscript);
+  els.close.addEventListener('click', function(){ if(!alreadySent && (els.transcript.value||'').trim()){ if(confirm('認識結果を親アプリへ送ってから閉じますか？')) sendToParent(); } window.close(); });
+  els.transcript.addEventListener('input', function(){ sttFullTranscript = els.transcript.value || ''; backupTranscriptSoon(); });
+  window.addEventListener('beforeunload', function(){ try{ localStorage.setItem('mic_last_transcript', els.transcript.value || ''); localStorage.setItem('mic_last_timestamp', String(Date.now())); }catch(e){} });
+
+  restoreBackupIfAny();
+  updateTimer();
+  updateButtons();
+  if(!SpeechRecognition){ setStatus('SpeechRecognition非対応です。Chrome推奨です。手入力は使えます。', 'err'); }
+  sendReady();
+  setTimeout(sendReady, 500);
+  setTimeout(sendReady, 1500);
+})();
+</script>
+</body>
+</html>
