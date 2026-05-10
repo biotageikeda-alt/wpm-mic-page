@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WPM Flash TTS</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 16px;
+      background: #f0f4f8;
+      margin: 0;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: #333;
+    }
+
+    #log {
+      line-height: 1.8;
+    }
+
+    #log div {
+      padding: 2px 0;
+      border-bottom: 1px solid #dde;
+      word-break: break-all;
+    }
+
+    .ok {
+      color: #1a7a1a;
+      font-weight: 700;
+    }
+
+    .err {
+      color: #c00;
+      font-weight: bold;
+    }
+
+    .info {
+      color: #0055aa;
+    }
+
+    .warn {
+      color: #a65000;
+    }
+
+    #tapBtn {
+      display: none;
+      width: 100%;
+      padding: 14px;
+      margin-top: 14px;
+      font-size: 16px;
+      background: #0055aa;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    #closeBtn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 14px;
+      background: #64748b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h3>WPM Flash TTS</h3>
+
+  <div id="log"></div>
+
+  <button id="tapBtn" onclick="tapEnable()">▶ Tap to enable audio</button>
+  <button id="closeBtn" onclick="window.close()">Close this helper</button>
+
+  <div class="note">
+    Keep this tab open and return to the WPM app tab.<br>
+    This helper is used only for Android flashcard pronunciation.
+  </div>
+
+  <script>
+    (function () {
+      var _pending = null;
+      var _lastText = '';
+      var _lastTime = 0;
+      var DEDUP_MS = 5000;
+      var _lastRequestId = null;
+      var _ready = false;
+
+      function pad(n) {
+        return n < 10 ? '0' + n : n;
+      }
+
+      function ts() {
+        var d = new Date();
+        return d.getHours() + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      }
+
+      function addLog(msg, cls) {
+        var el = document.getElementById('log');
+        var d = document.createElement('div');
+        d.className = cls || '';
+        d.textContent = ts() + ' ' + msg;
+        el.appendChild(d);
+
+        while (el.children.length > 18) {
+          el.removeChild(el.firstChild);
+        }
+
+        console.log('[FlashTTS] ' + msg);
+      }
+
+      function getEnVoice() {
+        var voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+
+        return voices.find(function (v) {
+          return /^en-US/i.test(v.lang || '');
+        }) || voices.find(function (v) {
+          return /^en/i.test(v.lang || '');
+        }) || null;
+      }
+
+      function speakPayload(data) {
+        var text = String(data.text || '').trim();
+
+        if (!text) {
+          addLog('empty text — skip', 'warn');
+          return;
+        }
+
+        var now = Date.now();
+
+        if (text === _lastText && (now - _lastTime) < DEDUP_MS) {
+          addLog('dedup(time) skip: "' + text + '"', 'info');
+          return;
+        }
+
+        _lastText = text;
+        _lastTime = now;
+
+        var synth = window.speechSynthesis;
+
+        if (!synth) {
+          addLog('ERROR: speechSynthesis not available', 'err');
+          return;
+        }
+
+        var voice = getEnVoice();
+        var utt = new SpeechSynthesisUtterance(text);
+
+        utt.lang = (voice && voice.lang) ? voice.lang : (data.lang || 'en-US');
+        if (voice) utt.voice = voice;
+
+        utt.rate = Number(data.rate || 1.0) || 1.0;
+        utt.pitch = Number(data.pitch || 1.0) || 1.0;
+        utt.volume = Number(data.volume || 1.0) || 1.0;
+
+        utt.onstart = function () {
+          addLog('onstart ✓ "' + text + '"', 'ok');
+        };
+
+        utt.onend = function () {
+          addLog('onend ✓ "' + text + '"', 'ok');
+        };
+
+        utt.onerror = function (e) {
+          var err = e && e.error ? e.error : 'unknown';
+          addLog('onerror: ' + err + ' / "' + text + '"', 'err');
+
+          if (err === 'not-allowed' || err === 'synthesis-failed') {
+            document.getElementById('tapBtn').style.display = 'block';
+          }
+        };
+
+        try {
+          addLog('speak request: "' + text + '" / lang=' + utt.lang, 'info');
+          addLog('voice: ' + (voice ? voice.name : 'default'), 'info');
+
+          addLog(
+            'before speak: paused=' + synth.paused +
+            ', speaking=' + synth.speaking +
+            ', pending=' + synth.pending,
+            'info'
+          );
+
+          // Androidで無音化することがあるため cancel() は使わない
+          synth.speak(utt);
+
+          addLog(
+            'after speak: paused=' + synth.paused +
+            ', speaking=' + synth.speaking +
+            ', pending=' + synth.pending,
+            'info'
+          );
+
+          [100, 300, 700].forEach(function (ms) {
+            setTimeout(function () {
+              addLog(
+                ms + 'ms: paused=' + synth.paused +
+                ', speaking=' + synth.speaking +
+                ', pending=' + synth.pending,
+                'info'
+              );
+            }, ms);
+          });
+
+        } catch (err2) {
+          addLog('exception: ' + (err2 && err2.message ? err2.message : err2), 'err');
+          document.getElementById('tapBtn').style.display = 'block';
+        }
+      }
+
+      function handleMessage(evt) {
+        var data = evt && evt.data ? evt.data : null;
+
+        // GAS側originは動的に変わる可能性があるため、origin厳密チェックはしない
+        // typeだけで処理対象を限定する
+        if (!data || data.type !== 'WPM_FLASH_TTS_SPEAK') return;
+
+        if (data.requestId && data.requestId === _lastRequestId) {
+          addLog('requestId dedup skip: ' + data.requestId, 'info');
+          return;
+        }
+
+        _lastRequestId = data.requestId || null;
+
+        addLog('msg received: "' + (data.text || '') + '"', 'info');
+
+        if (!_ready) {
+          _pending = data;
+          addLog('queued: page not ready', 'warn');
+          return;
+        }
+
+        speakPayload(data);
+      }
+
+      window.addEventListener('message', handleMessage, false);
+
+      window.tapEnable = function () {
+        addLog('tap enable pressed', 'info');
+
+        var data = _pending || {
+          type: 'WPM_FLASH_TTS_SPEAK',
+          requestId: 'manual_' + Date.now(),
+          text: 'audio enabled',
+          lang: 'en-US',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0
+        };
+
+        // 手動ボタンでは同じrequestIdでも再試行できるようにする
+        _lastRequestId = null;
+        speakPayload(data);
+      };
+
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = function () {
+          addLog('voices: ' + window.speechSynthesis.getVoices().length, 'info');
+        };
+      }
+
+      window.addEventListener('load', function () {
+        _ready = true;
+
+        addLog('helper loaded', 'ok');
+        addLog('origin: ' + window.location.origin, 'info');
+        addLog('inIframe: ' + (window.self !== window.top), 'info');
+
+        if (window.speechSynthesis) {
+          addLog('voices initial: ' + window.speechSynthesis.getVoices().length, 'info');
+        } else {
+          addLog('speechSynthesis not available', 'err');
+        }
+
+        if (_pending) {
+          var p = _pending;
+          _pending = null;
+          addLog('processing queued message', 'info');
+          speakPayload(p);
+        } else {
+          addLog('Ready. Return to WPM and press Pronunciation.', 'ok');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
